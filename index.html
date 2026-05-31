@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>efrog</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <nav class="nav">
+      <a href="#record" class="nav-brand">efrog</a>
+      <div class="nav-links">
+        <a href="#record" class="nav-link" data-page="record">Analyze</a>
+        <a href="#history" class="nav-link" data-page="history">History</a>
+        <a href="#about" class="nav-link" data-page="about">About</a>
+      </div>
+      <button id="feedback-toggle" class="feedback-toggle" role="switch" aria-checked="false" aria-label="Feedback Mode" title="Feedback Mode">
+        <span class="toggle-text">Feedback</span>
+        <span class="toggle-track">
+          <span class="toggle-thumb"></span>
+        </span>
+      </button>
+    </nav>
+  </header>
+
+  <main id="app" class="main"></main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="#record" class="bottom-nav-link" data-page="record">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+      <span>Analyze</span>
+    </a>
+    <a href="#history" class="bottom-nav-link" data-page="history">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <span>History</span>
+    </a>
+    <a href="#about" class="bottom-nav-link" data-page="about">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span>About</span>
+    </a>
+  </nav>
+
+  <script src="js/store.js"></script>
+  <script src="js/pages/about.js"></script>
+  <script src="js/pages/record.js"></script>
+  <script src="js/pages/history.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

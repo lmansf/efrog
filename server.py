@@ -38,6 +38,11 @@ try:
     input_name = session.get_inputs()[0].name
     print(f'Model ready.  Input: {input_name!r}  '
           f'Provider: {session.get_providers()[0]}')
+    # Run one dummy inference so ONNX compiles/optimises the graph now,
+    # not on the first real request (which would cause a timeout).
+    _dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
+    session.run(None, {input_name: _dummy})
+    print('Warm-up done — first inference is ready.')
 except Exception as exc:
     print(f'ERROR: could not load model — {exc}')
     print('Set EFROG_MODEL_PATH or place frog_classifier.onnx next to server.py.')

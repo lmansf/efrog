@@ -372,13 +372,16 @@ const RecordPage = (function () {
     let apiResult = null;
     let apiError  = null;
 
+    const minWait = new Promise(resolve => setTimeout(resolve, 5000));
+
     try {
       apiResult = await classifyAudio();
     } catch (err) {
       apiError = err.message || 'Classification failed';
-    } finally {
-      hideLoadingOverlay();
     }
+
+    await minWait;
+    hideLoadingOverlay();
 
     if (!document.getElementById('result-panel')) return;
 

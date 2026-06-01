@@ -1,6 +1,6 @@
 const RecordPage = (function () {
   const _local   = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
-  const API_BASE = _local ? 'http://localhost:5000' : '/api';
+  const API_BASE = _local ? 'http://localhost:5000' : EFROG_API_URL;
 
   // Module-level state
   let mediaRecorder   = null;

@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Minimum visible time — starts counting from page load
     const minWait = new Promise(resolve => setTimeout(resolve, 2000));
 
-    const _local  = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
-    const API_BASE = _local ? 'http://localhost:5000' : '/api';
+    const _local   = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+    const API_BASE = _local ? 'http://localhost:5000' : EFROG_API_URL;
 
     // Poll /health until model is ready, then wait out the minimum
     let attempts = 0;

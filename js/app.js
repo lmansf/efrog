@@ -19,6 +19,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const _local   = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
     const API_BASE = _local ? 'http://localhost:5000' : EFROG_API_URL;
 
+    function dismiss() {
+      clearInterval(dotTimer);
+      screen.classList.add('boot-exit');
+      screen.addEventListener('animationend', () => screen.remove(), { once: true });
+    }
+
+    // If no API is configured yet, skip health check and just boot
+    if (!API_BASE) {
+      minWait.then(dismiss);
+      return;
+    }
+
     // Poll /health until model is ready, then wait out the minimum
     let attempts = 0;
     async function poll() {
@@ -30,9 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if (data.status === 'ok') {
           await minWait;
-          clearInterval(dotTimer);
-          screen.classList.add('boot-exit');
-          screen.addEventListener('animationend', () => screen.remove(), { once: true });
+          dismiss();
           return;
         }
       } catch {}

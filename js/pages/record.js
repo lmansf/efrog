@@ -414,6 +414,15 @@ const RecordPage = (function () {
       });
       currentEntryId = entry.id;
 
+      window.DB?.insertObservation({
+        id:            entry.id,
+        type:          audioBlob ? 'recording' : 'upload',
+        name:          currentFileName || 'Audio',
+        species:       apiResult.species,
+        confidence:    apiResult.confidence,
+        probabilities: apiResult.probabilities,
+      }).catch(() => {});
+
       const CONFIDENCE_THRESHOLD = 0.90;
       const confident = apiResult.confidence >= CONFIDENCE_THRESHOLD;
       const pct = (apiResult.confidence * 100).toFixed(1);
@@ -468,13 +477,18 @@ const RecordPage = (function () {
     }
 
     if (currentEntryId !== null) {
+      const verdict = selected.dataset.val;
+      const note    = document.getElementById('feedback-note').value.trim();
+
       Store.updateEntry(currentEntryId, {
-        feedback: {
-          verdict:   selected.dataset.val,
-          note:      document.getElementById('feedback-note').value.trim(),
-          timestamp: new Date().toISOString(),
-        },
+        feedback: { verdict, note, timestamp: new Date().toISOString() },
       });
+
+      window.DB?.insertFeedback({
+        observationId: currentEntryId,
+        verdict,
+        note,
+      }).catch(() => {});
     }
 
     document.getElementById('feedback-panel').innerHTML = `

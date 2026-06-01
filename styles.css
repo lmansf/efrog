@@ -90,6 +90,27 @@ body {
 /* Top nav links hidden on mobile */
 .nav-links { display: none; }
 
+/* ── Auth Button ───────────────────────────────────────── */
+.auth-btn {
+  border: 1px solid var(--border);
+  background: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color .2s var(--ease-out), border-color .2s var(--ease-out);
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.auth-btn:hover { color: var(--text); border-color: var(--text-light); }
+.auth-btn.auth-signed-in { color: var(--primary); border-color: var(--primary-dim); }
+.auth-btn.auth-signed-in:hover { border-color: var(--primary); }
+
 /* ── Feedback Toggle ───────────────────────────────────── */
 .feedback-toggle {
   display: flex;

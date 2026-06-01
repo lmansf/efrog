@@ -30,6 +30,7 @@
         <a href="#history" class="nav-link" data-page="history">History</a>
         <a href="#about" class="nav-link" data-page="about">About</a>
       </div>
+      <button id="auth-btn" class="auth-btn" onclick="Auth?.toggle()">Sign in</button>
       <button id="feedback-toggle" class="feedback-toggle" role="switch" aria-checked="false" aria-label="Feedback Mode" title="Feedback Mode">
         <span class="toggle-text">Feedback</span>
         <span class="toggle-track">
@@ -68,6 +69,9 @@
     </a>
   </nav>
 
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.18/auth0-spa-js.production.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/db.js"></script>
   <script src="js/config.js"></script>
   <script src="js/store.js"></script>
   <script src="js/pages/about.js"></script>

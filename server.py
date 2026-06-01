@@ -141,6 +141,182 @@ def classify():
         os.unlink(tmp_path)
 
 
+# ── Auth0 token verification ──────────────────────────────────────────────────
+import json as _json
+import urllib.request as _urllib
+
+_AUTH0_DOMAIN   = os.environ.get('AUTH0_DOMAIN', '')
+_AUTH0_AUDIENCE = os.environ.get('AUTH0_AUDIENCE', '')
+_jwks_cache     = None
+
+def _get_jwks():
+    global _jwks_cache
+    if _jwks_cache:
+        return _jwks_cache
+    with _urllib.urlopen(f'https://{_AUTH0_DOMAIN}/.well-known/jwks.json', timeout=5) as r:
+        _jwks_cache = _json.loads(r.read())
+    return _jwks_cache
+
+def _verify_token(token: str) -> str:
+    from jose import jwt as jose_jwt
+    header = jose_jwt.get_unverified_header(token)
+    key    = next((k for k in _get_jwks()['keys'] if k['kid'] == header['kid']), None)
+    if not key:
+        raise ValueError('Unknown signing key')
+    payload = jose_jwt.decode(
+        token, key,
+        algorithms=['RS256'],
+        audience=_AUTH0_AUDIENCE,
+        issuer=f'https://{_AUTH0_DOMAIN}/',
+    )
+    return payload['sub']
+
+def _require_auth():
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return None, (jsonify({'error': 'Missing Authorization header'}), 401)
+    try:
+        return _verify_token(auth[7:]), None
+    except Exception as exc:
+        return None, (jsonify({'error': f'Invalid token: {exc}'}), 401)
+
+
+# ── Databricks ────────────────────────────────────────────────────────────────
+_DBC_HOST      = os.environ.get('DATABRICKS_HOST', '')
+_DBC_HTTP_PATH = os.environ.get('DATABRICKS_HTTP_PATH', '')
+_DBC_TOKEN     = os.environ.get('DATABRICKS_TOKEN', '')
+_DBC_CATALOG   = os.environ.get('DATABRICKS_CATALOG', '')
+_DBC_SCHEMA    = os.environ.get('DATABRICKS_SCHEMA', 'efrog')
+_DBC_PREFIX    = f'{_DBC_CATALOG}.{_DBC_SCHEMA}' if _DBC_CATALOG else _DBC_SCHEMA
+
+def _databricks_conn():
+    from databricks import sql as _db_sql
+    return _db_sql.connect(
+        server_hostname=_DBC_HOST,
+        http_path=_DBC_HTTP_PATH,
+        access_token=_DBC_TOKEN,
+    )
+
+def _ensure_tables(cur):
+    cur.execute(f"""
+        CREATE TABLE IF NOT EXISTS {_DBC_PREFIX}.observations (
+            id            STRING,
+            user_id       STRING,
+            created_at    STRING,
+            type          STRING,
+            name          STRING,
+            species       STRING,
+            confidence    DOUBLE,
+            probabilities STRING
+        ) USING DELTA
+    """)
+    cur.execute(f"""
+        CREATE TABLE IF NOT EXISTS {_DBC_PREFIX}.feedback (
+            id              STRING,
+            user_id         STRING,
+            observation_id  STRING,
+            created_at      STRING,
+            verdict         STRING,
+            note            STRING
+        ) USING DELTA
+    """)
+
+def _databricks_ready():
+    return all([_DBC_HOST, _DBC_TOKEN, _AUTH0_DOMAIN])
+
+
+# ── /sync ─────────────────────────────────────────────────────────────────────
+@app.route('/sync', methods=['POST', 'OPTIONS'])
+def sync_data():
+    if request.method == 'OPTIONS':
+        return '', 204
+    if not _databricks_ready():
+        return jsonify({'error': 'Databricks or Auth0 not configured on server'}), 503
+
+    user_id, err = _require_auth()
+    if err:
+        return err
+
+    data         = request.get_json(force=True) or {}
+    observations = data.get('observations', [])
+    feedback     = data.get('feedback', [])
+
+    try:
+        with _databricks_conn() as conn:
+            with conn.cursor() as cur:
+                _ensure_tables(cur)
+                for obs in observations:
+                    cur.execute(f"""
+                        MERGE INTO {_DBC_PREFIX}.observations AS t
+                        USING (SELECT %s AS id, %s AS user_id) AS s
+                          ON t.id = s.id AND t.user_id = s.user_id
+                        WHEN NOT MATCHED THEN INSERT
+                          (id, user_id, created_at, type, name, species, confidence, probabilities)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, [
+                        obs.get('id'), user_id,
+                        obs.get('id'), user_id,
+                        obs.get('created_at', ''), obs.get('type', ''),
+                        obs.get('name', ''),       obs.get('species', ''),
+                        float(obs.get('confidence') or 0),
+                        _json.dumps(obs.get('probabilities') or {}),
+                    ])
+                for fb in feedback:
+                    cur.execute(f"""
+                        MERGE INTO {_DBC_PREFIX}.feedback AS t
+                        USING (SELECT %s AS id, %s AS user_id) AS s
+                          ON t.id = s.id AND t.user_id = s.user_id
+                        WHEN NOT MATCHED THEN INSERT
+                          (id, user_id, observation_id, created_at, verdict, note)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, [
+                        fb.get('id'), user_id,
+                        fb.get('id'), user_id,
+                        fb.get('observation_id', ''), fb.get('created_at', ''),
+                        fb.get('verdict', ''),         fb.get('note', ''),
+                    ])
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({'synced': {'observations': len(observations), 'feedback': len(feedback)}})
+
+
+# ── /observations ─────────────────────────────────────────────────────────────
+@app.route('/observations', methods=['GET', 'OPTIONS'])
+def get_observations():
+    if request.method == 'OPTIONS':
+        return '', 204
+    if not _databricks_ready():
+        return jsonify({'error': 'Databricks or Auth0 not configured on server'}), 503
+
+    user_id, err = _require_auth()
+    if err:
+        return err
+
+    try:
+        with _databricks_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    SELECT id, created_at, type, name, species, confidence, probabilities
+                    FROM {_DBC_PREFIX}.observations
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC
+                """, [user_id])
+                cols = [d[0] for d in cur.description]
+                rows = []
+                for row in cur.fetchall():
+                    obs = dict(zip(cols, row))
+                    try:
+                        obs['probabilities'] = _json.loads(obs['probabilities'])
+                    except Exception:
+                        obs['probabilities'] = {}
+                    rows.append(obs)
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({'observations': rows})
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     host = '0.0.0.0' if os.environ.get('PORT') else '127.0.0.1'

@@ -1,0 +1,188 @@
+// DuckDB-WASM — browser-local, in-memory session storage.
+// Anonymous: ephemeral (lost on close).
+// Signed-in: sync() pushes unsynced rows to Databricks via Flask, then pulls remote history.
+// window.DB is set synchronously; every method awaits _ready before using _conn.
+
+import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/+esm';
+
+let _conn      = null;
+let _initError = null;
+
+const _ready = (async () => {
+  const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+
+  const workerUrl = URL.createObjectURL(
+    new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+  );
+  const worker = new Worker(workerUrl);
+  URL.revokeObjectURL(workerUrl);
+
+  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  _conn = await db.connect();
+
+  // created_at stored as ISO string — avoids Arrow BigInt serialization issues
+  await _conn.query(`
+    CREATE TABLE IF NOT EXISTS observations (
+      id            VARCHAR PRIMARY KEY,
+      created_at    VARCHAR,
+      type          VARCHAR,
+      name          VARCHAR,
+      species       VARCHAR,
+      confidence    DOUBLE,
+      probabilities VARCHAR
+    )
+  `);
+
+  await _conn.query(`
+    CREATE TABLE IF NOT EXISTS feedback (
+      id              VARCHAR PRIMARY KEY,
+      observation_id  VARCHAR,
+      created_at      VARCHAR,
+      verdict         VARCHAR,
+      note            VARCHAR,
+      synced          BOOLEAN DEFAULT false
+    )
+  `);
+})().catch(err => {
+  _initError = err;
+  console.warn('[DB] DuckDB-WASM failed to initialize:', err.message);
+});
+
+async function _guard() {
+  await _ready;
+  return !_initError;
+}
+
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
+async function insertObservation({ id, created_at, type, name, species, confidence, probabilities }) {
+  if (!await _guard()) return;
+  const stmt = await _conn.prepare(
+    `INSERT INTO observations (id, created_at, type, name, species, confidence, probabilities)
+     VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`
+  );
+  await stmt.query(
+    String(id),
+    created_at ?? new Date().toISOString(),
+    type, name, species,
+    Number(confidence),
+    typeof probabilities === 'string' ? probabilities : JSON.stringify(probabilities),
+  );
+  await stmt.close();
+}
+
+async function getUnsyncedFeedback() {
+  if (!await _guard()) return [];
+  const tbl = await _conn.query('SELECT * FROM feedback WHERE synced = false ORDER BY created_at');
+  return tbl.toArray().map(r => ({
+    id:             r.id,
+    observation_id: r.observation_id,
+    created_at:     r.created_at,
+    verdict:        r.verdict,
+    note:           r.note,
+  }));
+}
+
+async function markFeedbackSynced(ids) {
+  if (!await _guard()) return;
+  for (const id of ids) {
+    const stmt = await _conn.prepare('UPDATE feedback SET synced = true WHERE id = ?');
+    await stmt.query(id);
+    await stmt.close();
+  }
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+window.DB = {
+  async insertObservation(data) {
+    return insertObservation(data);
+  },
+
+  async insertFeedback({ observationId, verdict, note }) {
+    if (!await _guard()) return;
+    const stmt = await _conn.prepare(
+      `INSERT INTO feedback (id, observation_id, created_at, verdict, note)
+       VALUES (?, ?, ?, ?, ?)`
+    );
+    await stmt.query(
+      crypto.randomUUID(), String(observationId),
+      new Date().toISOString(), verdict, note ?? '',
+    );
+    await stmt.close();
+  },
+
+  async getObservations() {
+    if (!await _guard()) return [];
+    const tbl = await _conn.query('SELECT * FROM observations ORDER BY created_at DESC');
+    return tbl.toArray().map(r => ({
+      id:            r.id,
+      created_at:    r.created_at,
+      type:          r.type,
+      name:          r.name,
+      species:       r.species,
+      confidence:    r.confidence,
+      probabilities: typeof r.probabilities === 'string'
+        ? JSON.parse(r.probabilities)
+        : r.probabilities,
+    }));
+  },
+
+  async getFeedback(observationId) {
+    if (!await _guard()) return [];
+    const stmt = await _conn.prepare(
+      'SELECT * FROM feedback WHERE observation_id = ? ORDER BY created_at DESC'
+    );
+    const tbl = await stmt.query(String(observationId));
+    await stmt.close();
+    return tbl.toArray().map(r => ({
+      id:             r.id,
+      observation_id: r.observation_id,
+      created_at:     r.created_at,
+      verdict:        r.verdict,
+      note:           r.note,
+    }));
+  },
+
+  // Push unsynced local rows to Databricks, then pull remote history back.
+  // Called automatically on sign-in by auth.js.
+  async sync(token) {
+    if (!await _guard()) return;
+    if (!EFROG_API_URL) return;
+
+    const [observations, feedbackRows] = await Promise.all([
+      this.getObservations(),
+      getUnsyncedFeedback(),
+    ]);
+
+    const res = await fetch(`${EFROG_API_URL}/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ observations, feedback: feedbackRows }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? `Sync failed ${res.status}`);
+    }
+
+    if (feedbackRows.length) {
+      await markFeedbackSynced(feedbackRows.map(f => f.id));
+    }
+
+    // Populate local DB with remote history (ON CONFLICT DO NOTHING keeps local data)
+    const histRes = await fetch(`${EFROG_API_URL}/observations`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (histRes.ok) {
+      const { observations: remote } = await histRes.json();
+      for (const obs of remote) {
+        await insertObservation(obs);
+      }
+    }
+  },
+};

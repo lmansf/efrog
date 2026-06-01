@@ -59,7 +59,11 @@
       dismiss();
     });
 
-    document.getElementById('welcome-skip-btn').addEventListener('click', dismiss);
+    document.getElementById('welcome-skip-btn').addEventListener('click', () => {
+      Store.setFeedbackMode(false);
+      window._syncFeedbackToggle?.();
+      dismiss();
+    });
   }
 
   function _showToggleHint() {

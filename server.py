@@ -106,8 +106,10 @@ def health():
     })
 
 
-@app.route('/classify', methods=['POST'])
+@app.route('/classify', methods=['POST', 'OPTIONS'])
 def classify():
+    if request.method == 'OPTIONS':
+        return '', 204
     if session is None:
         return jsonify({'error': 'Model not loaded — check server logs'}), 503
 

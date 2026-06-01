@@ -1,5 +1,6 @@
 const RecordPage = (function () {
-  const API_BASE = 'http://localhost:5000';
+  const _local   = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
+  const API_BASE = _local ? 'http://localhost:5000' : '/api';
 
   // Module-level state
   let mediaRecorder   = null;
@@ -349,7 +350,9 @@ const RecordPage = (function () {
         throw new Error('Request timed out — classification is taking too long');
       }
       if (err.name === 'TypeError') {
-        throw new Error('Cannot reach server — run: python server.py');
+        throw new Error(_local
+          ? 'Cannot reach server — run: python server.py'
+          : 'Cannot reach server — please try again');
       }
       throw err;
     } finally {

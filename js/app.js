@@ -32,13 +32,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Poll /health until model is ready, then wait out the minimum
+    const REMOTE_MSGS = [
+      [5,  'Server is starting up…'],
+      [15, 'Loading model — first visit takes a moment…'],
+      [30, 'Still warming up, almost there…'],
+    ];
     let attempts = 0;
     async function poll() {
       attempts++;
-      if (attempts === 8 && _local) subEl.textContent = 'Run: python server.py';
+      if (_local) {
+        if (attempts === 8) subEl.textContent = 'Run: python server.py';
+      } else {
+        for (const [n, msg] of REMOTE_MSGS) {
+          if (attempts === n) { subEl.textContent = msg; break; }
+        }
+      }
       try {
         const res  = await fetch(`${API_BASE}/health`,
-          { signal: AbortSignal.timeout(2000) });
+          { signal: AbortSignal.timeout(3000) });
         const data = await res.json();
         if (data.status === 'ok') {
           await minWait;

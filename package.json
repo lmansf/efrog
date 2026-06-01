@@ -1,0 +1,14 @@
+{
+  "name": "efrog",
+  "version": "1.0.0",
+  "description": "Browser-based frog call classifier",
+  "scripts": {
+    "dev": "python3 server.py"
+  },
+  "keywords": ["frog", "classifier", "ml", "audio"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/analytics": "^1.3.1"
+  }
+}

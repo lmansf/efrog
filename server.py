@@ -15,7 +15,6 @@ import tempfile
 import numpy as np
 import librosa
 from scipy.ndimage import zoom
-from PIL import Image
 import onnxruntime as ort
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -64,20 +63,26 @@ def audio_to_model_input(path: str) -> np.ndarray:
         y=audio, sr=SAMPLE_RATE, n_mels=N_MELS, n_fft=2048, hop_length=512,
     )
     mel_db = librosa.power_to_db(mel, ref=np.max)
+    # Replace any -inf from silent frames (doesn't affect typical frog audio)
+    mel_db = np.nan_to_num(mel_db, nan=0.0, posinf=0.0, neginf=-80.0)
 
     if mel_db.shape[1] != 216:
         mel_db = zoom(mel_db, (1, 216 / mel_db.shape[1]), order=1)
 
+    # Normalize to [0, 255] — matches training pipeline exactly
+    lo, hi = mel_db.min(), mel_db.max()
     mel_norm = (
-        (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min()) * 255
-    ).astype(np.uint8)
+        ((mel_db - lo) / (hi - lo) * 255) if hi > lo
+        else np.zeros_like(mel_db)
+    ).astype(np.float32)
 
-    # Resize to 224×224 (matches EfficientNetB0 input)
-    img = Image.fromarray(mel_norm, mode='L').resize((224, 224), Image.BILINEAR)
-    arr = np.array(img, dtype=np.float32)
+    # Resize (128, 216) → (224, 224) with bilinear zoom, same as tf.image.resize
+    zy = 224 / mel_norm.shape[0]
+    zx = 224 / mel_norm.shape[1]
+    resized = zoom(mel_norm, (zy, zx), order=1)
 
     # Stack grayscale → RGB
-    rgb = np.stack([arr, arr, arr], axis=-1)
+    rgb = np.stack([resized, resized, resized], axis=-1)
 
     # EfficientNet preprocess_input: scale to [-1, 1]
     rgb = rgb / 127.5 - 1.0
@@ -113,6 +118,7 @@ def classify():
         x     = audio_to_model_input(tmp_path)
         preds = session.run(None, {input_name: x})[0][0]
         idx   = int(np.argmax(preds))
+        print({sp: f'{float(preds[i]):.3f}' for i, sp in enumerate(LABEL_CLASSES)})
         return jsonify({
             'species':       LABEL_CLASSES[idx],
             'confidence':    float(preds[idx]),

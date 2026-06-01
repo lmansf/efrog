@@ -410,10 +410,9 @@ const RecordPage = (function () {
       });
       currentEntryId = entry.id;
 
+      const CONFIDENCE_THRESHOLD = 0.90;
+      const confident = apiResult.confidence >= CONFIDENCE_THRESHOLD;
       const pct = (apiResult.confidence * 100).toFixed(1);
-      const confidenceClass =
-        apiResult.confidence >= 0.70 ? 'confidence-high' :
-        apiResult.confidence >= 0.40 ? 'confidence-mid'  : 'confidence-low';
 
       const probBars = Object.entries(apiResult.probabilities)
         .sort(([, a], [, b]) => b - a)
@@ -421,21 +420,25 @@ const RecordPage = (function () {
           <div class="prob-row">
             <span class="prob-label">${formatSpecies(sp)}</span>
             <div class="prob-bar-wrap">
-              <div class="prob-bar ${sp === apiResult.species ? 'prob-bar-top' : ''}"
+              <div class="prob-bar ${confident && sp === apiResult.species ? 'prob-bar-top' : ''}"
                    data-width="${(p * 100).toFixed(1)}%"></div>
             </div>
             <span class="prob-pct">${(p * 100).toFixed(1)}%</span>
           </div>
         `).join('');
 
-      resultContent.innerHTML = `
+      resultContent.innerHTML = confident ? `
         <div class="result-species">
           <div class="result-species-name">${formatSpecies(apiResult.species)}</div>
-          <div class="result-confidence-badge ${confidenceClass}">${pct}% confidence</div>
+          <div class="result-confidence-badge confidence-high">${pct}% confidence</div>
         </div>
-        <div class="result-probabilities">
-          ${probBars}
+        <div class="result-probabilities">${probBars}</div>
+      ` : `
+        <div class="result-species">
+          <div class="result-species-name result-uncertain">No confident match</div>
+          <div class="result-confidence-badge confidence-low">Below 90% threshold</div>
         </div>
+        <div class="result-probabilities">${probBars}</div>
       `;
 
       // Animate bars in after DOM paint

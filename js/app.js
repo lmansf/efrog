@@ -1,4 +1,45 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // ── Boot screen ────────────────────────────────────────
+  (function () {
+    const screen = document.getElementById('boot-screen');
+    const dotsEl = document.getElementById('boot-dots');
+    const subEl  = document.getElementById('boot-label-sub');
+    if (!screen) return;
+
+    // Animated dots: "Loading." → ".." → "..."
+    const DOT_STATES = ['.', '..', '...'];
+    let dotIdx = 0;
+    const dotTimer = setInterval(() => {
+      dotsEl.textContent = DOT_STATES[dotIdx++ % 3];
+    }, 800);
+
+    // Minimum visible time — starts counting from page load
+    const minWait = new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Poll /health until model is ready, then wait out the minimum
+    let attempts = 0;
+    async function poll() {
+      attempts++;
+      if (attempts === 8) subEl.textContent = 'Run: python server.py';
+      try {
+        const res  = await fetch('http://localhost:5000/health',
+          { signal: AbortSignal.timeout(2000) });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          await minWait;
+          clearInterval(dotTimer);
+          screen.classList.add('boot-exit');
+          screen.addEventListener('animationend', () => screen.remove(), { once: true });
+          return;
+        }
+      } catch {}
+      setTimeout(poll, 1500);
+    }
+
+    poll();
+  })();
+
+  // ── Feedback toggle ────────────────────────────────────
   const toggle = document.getElementById('feedback-toggle');
 
   function syncToggle() {

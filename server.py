@@ -27,7 +27,14 @@ DURATION      = 5.0
 N_MELS        = 128
 
 app = Flask(__name__)
-CORS(app)   # allows requests from file:// and any localhost origin
+CORS(app)
+
+@app.after_request
+def _cors(response):
+    response.headers['Access-Control-Allow-Origin']  = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
 
 # ── Load model at startup ─────────────────────────────────────────────────────
 print(f'Loading model from {MODEL_PATH!r} …')

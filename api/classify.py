@@ -19,10 +19,7 @@ def _get_session():
     if _session is not None:
         return _session, _input_name
     import onnxruntime as ort
-    _here       = os.path.dirname(os.path.abspath(__file__))
-    model_path  = os.path.join(os.path.dirname(_here), 'frog_classifier.onnx')
-    if not os.path.exists(model_path):
-        model_path = os.path.join(_here, 'frog_classifier.onnx')
+    model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frog_classifier.onnx')
     _session    = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
     _input_name = _session.get_inputs()[0].name
     return _session, _input_name

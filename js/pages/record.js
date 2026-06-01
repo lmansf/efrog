@@ -319,48 +319,6 @@ const RecordPage = (function () {
     top.addEventListener('animationend', () => overlay.remove(), { once: true });
   }
 
-  // ── Feedback Overlay ──────────────────────────────────
-  function showFeedbackOverlay() {
-    const overlay = document.createElement('div');
-    overlay.id        = 'analyze-overlay';
-    overlay.className = 'analyze-overlay';
-    overlay.innerHTML = `
-      <div class="overlay-curtain overlay-curtain-top"></div>
-      <div class="overlay-curtain overlay-curtain-bottom"></div>
-      <div class="overlay-content">
-        <h2 class="overlay-title">Record Observation</h2>
-        <p class="overlay-subtitle">Feedback mode is active</p>
-        <div class="overlay-form">
-          <label class="form-label">What did you observe?</label>
-          <textarea class="form-textarea" id="overlay-obs-note" placeholder="Describe what you heard or saw…"></textarea>
-          <label class="form-label">Location <span class="form-optional">(optional)</span></label>
-          <input class="form-input" type="text" id="overlay-obs-location" placeholder="e.g. Backyard pond">
-          <button id="overlay-submit-btn" class="btn btn-primary" style="width:100%;margin-top:4px">Submit Observation</button>
-          <button id="overlay-cancel-btn" class="btn btn-ghost btn-sm" style="width:100%">Cancel</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    document.body.style.overflow = 'hidden';
-
-    requestAnimationFrame(() => {
-      overlay.querySelector('.overlay-curtain-top').classList.add('curtain-opening');
-      overlay.querySelector('.overlay-curtain-bottom').classList.add('curtain-opening');
-    });
-
-    function close(submitted) {
-      hideLoadingOverlay();
-      const btn = document.getElementById('analyze-btn');
-      if (btn) {
-        btn.disabled    = false;
-        btn.textContent = submitted ? 'Analyze again' : 'Analyze';
-      }
-    }
-
-    document.getElementById('overlay-submit-btn').addEventListener('click', () => close(true));
-    document.getElementById('overlay-cancel-btn').addEventListener('click', () => close(false));
-  }
-
   // ── Classification API ────────────────────────────────
   async function classifyAudio() {
     const payload = audioBlob || currentFile;
@@ -406,11 +364,6 @@ const RecordPage = (function () {
   async function runAnalysis() {
     const analyzeBtn = document.getElementById('analyze-btn');
     analyzeBtn.disabled = true;
-
-    if (Store.getFeedbackMode()) {
-      showFeedbackOverlay();
-      return;
-    }
 
     showLoadingOverlay();
 
@@ -512,6 +465,14 @@ const RecordPage = (function () {
     if (!apiError) {
       const feedbackPanel = document.getElementById('feedback-panel');
       if (feedbackPanel) {
+        // Reset form values so re-analysis gets a fresh form
+        const acc  = feedbackPanel.querySelector('#fb-accuracy');
+        const site = feedbackPanel.querySelector('#fb-site');
+        if (feedbackPanel.querySelector('#fb-name'))      feedbackPanel.querySelector('#fb-name').value = '';
+        if (acc)  { acc.value  = 5; feedbackPanel.querySelector('#fb-accuracy-val').textContent = '5'; }
+        if (site) { site.value = 5; feedbackPanel.querySelector('#fb-site-val').textContent = '5'; }
+        if (feedbackPanel.querySelector('#fb-note'))      feedbackPanel.querySelector('#fb-note').value = '';
+        feedbackPanel.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
         feedbackPanel.classList.remove('hidden');
         feedbackPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
@@ -543,15 +504,22 @@ const RecordPage = (function () {
       userAgent:  navigator.userAgent,
     }).catch(() => {});
 
-    document.getElementById('feedback-panel').innerHTML = `
-      <div class="feedback-thanks">
-        <span class="check-icon">✓</span>
-        <p>Feedback submitted — thank you!</p>
-      </div>
-    `;
+    document.getElementById('feedback-panel')?.classList.add('hidden');
+    _showToast('Feedback submitted — thank you!');
   }
 
   // ── Helpers ───────────────────────────────────────────
+  function _showToast(msg) {
+    const t = document.createElement('div');
+    t.className = 'feedback-toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => {
+      t.classList.add('toast-exit');
+      t.addEventListener('animationend', () => t.remove(), { once: true });
+    }, 2500);
+  }
+
   function fmtTime(secs) {
     return `${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, '0')}`;
   }

@@ -22,7 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function dismiss() {
       clearInterval(dotTimer);
       screen.classList.add('boot-exit');
-      screen.addEventListener('animationend', () => screen.remove(), { once: true });
+      screen.addEventListener('animationend', () => {
+        screen.remove();
+        window.Welcome?.maybeShow();
+      }, { once: true });
     }
 
     // If no API is configured yet, skip health check and just boot
@@ -77,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncToggle();
   });
 
+  window._syncFeedbackToggle = syncToggle;
   syncToggle();
   Router.init();
 });

@@ -144,8 +144,14 @@ else:
                         user_id         STRING,
                         observation_id  STRING,
                         created_at      STRING,
-                        verdict         STRING,
-                        note            STRING
+                        name            STRING,
+                        accuracy_rating INT,
+                        site_rating     INT,
+                        frogwatch       STRING,
+                        note            STRING,
+                        species         STRING,
+                        confidence      DOUBLE,
+                        user_agent      STRING
                     ) USING DELTA
                 """)
                 ok("Tables 'observations' and 'feedback' ready")

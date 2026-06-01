@@ -482,6 +482,53 @@ body {
 
 .feedback-row { display: flex; gap: 8px; align-items: center; }
 
+.form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.form-group:last-of-type { margin-bottom: 0; }
+
+.rating-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rating-min, .rating-max {
+  font-size: .78rem;
+  color: var(--text-light);
+  flex-shrink: 0;
+}
+.rating-slider {
+  flex: 1;
+  accent-color: var(--primary);
+  cursor: pointer;
+  height: 4px;
+}
+.rating-val {
+  min-width: 2ch;
+  text-align: right;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.frogwatch-opts { display: flex; gap: 8px; }
+.frogwatch-opt {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .9rem;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.frogwatch-opt.selected {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+}
+
 .feedback-thanks { display: flex; align-items: center; gap: 10px; color: var(--success); font-size: .9rem; }
 
 .check-icon {

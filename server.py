@@ -216,8 +216,14 @@ def _ensure_tables(cur):
             user_id         STRING,
             observation_id  STRING,
             created_at      STRING,
-            verdict         STRING,
-            note            STRING
+            name            STRING,
+            accuracy_rating INT,
+            site_rating     INT,
+            frogwatch       STRING,
+            note            STRING,
+            species         STRING,
+            confidence      DOUBLE,
+            user_agent      STRING
         ) USING DELTA
     """)
 
@@ -268,13 +274,21 @@ def sync_data():
                         USING (SELECT %s AS id, %s AS user_id) AS s
                           ON t.id = s.id AND t.user_id = s.user_id
                         WHEN NOT MATCHED THEN INSERT
-                          (id, user_id, observation_id, created_at, verdict, note)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                          (id, user_id, observation_id, created_at, name,
+                           accuracy_rating, site_rating, frogwatch, note,
+                           species, confidence, user_agent)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, [
                         fb.get('id'), user_id,
                         fb.get('id'), user_id,
                         fb.get('observation_id', ''), fb.get('created_at', ''),
-                        fb.get('verdict', ''),         fb.get('note', ''),
+                        fb.get('name', ''),
+                        int(fb['accuracy_rating']) if fb.get('accuracy_rating') is not None else None,
+                        int(fb['site_rating'])     if fb.get('site_rating')     is not None else None,
+                        fb.get('frogwatch', ''),   fb.get('note', ''),
+                        fb.get('species', ''),
+                        float(fb['confidence']) if fb.get('confidence') is not None else None,
+                        fb.get('user_agent', ''),
                     ])
     except Exception as exc:
         return jsonify({'error': str(exc)}), 500

@@ -14,6 +14,8 @@ const RecordPage = (function () {
   let recordSeconds   = 0;
   let factInterval    = null;
   let factIndex       = 0;
+  let currentSpecies    = null;
+  let currentConfidence = null;
 
   const FROG_FACTS = [
     "There are over 7,000 known species of frogs worldwide.",
@@ -77,15 +79,48 @@ const RecordPage = (function () {
       </div>
 
       <div id="feedback-panel" class="panel panel-feedback hidden">
-        <h2 class="panel-title">Feedback</h2>
-        <p class="feedback-prompt">Was this classification correct?</p>
-        <div class="feedback-options" id="feedback-options">
-          <button class="btn btn-success feedback-opt" data-val="correct">✓ Correct</button>
-          <button class="btn btn-outline-danger feedback-opt" data-val="incorrect">✗ Incorrect</button>
+        <h2 class="panel-title">Give Feedback</h2>
+
+        <div class="form-group">
+          <label class="form-label" for="fb-name">Name <span class="form-optional">(optional)</span></label>
+          <input type="text" id="fb-name" class="form-input" placeholder="Your name">
         </div>
-        <textarea id="feedback-note" class="feedback-note" placeholder="Optional note…"></textarea>
+
+        <div class="form-group">
+          <label class="form-label">Accuracy Rating <span class="form-optional">How accurate was the ID?</span></label>
+          <div class="rating-wrap">
+            <span class="rating-min">0</span>
+            <input type="range" min="0" max="10" value="5" id="fb-accuracy" class="rating-slider">
+            <span class="rating-max">10</span>
+            <span class="rating-val" id="fb-accuracy-val">5</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Site / Interface Rating <span class="form-optional">How's the experience?</span></label>
+          <div class="rating-wrap">
+            <span class="rating-min">0</span>
+            <input type="range" min="0" max="10" value="5" id="fb-site" class="rating-slider">
+            <span class="rating-max">10</span>
+            <span class="rating-val" id="fb-site-val">5</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Are you a member of FrogWatch?</label>
+          <div class="frogwatch-opts">
+            <button class="btn frogwatch-opt" data-val="yes">Yes</button>
+            <button class="btn frogwatch-opt" data-val="no">No</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fb-note">Feedback &amp; Suggestions <span class="form-optional">(optional)</span></label>
+          <textarea id="fb-note" class="feedback-note" placeholder="Tell us what you think…"></textarea>
+        </div>
+
         <div class="feedback-row">
-          <button id="submit-feedback" class="btn btn-secondary">Submit Feedback</button>
+          <button id="submit-feedback" class="btn btn-secondary">Submit</button>
           <button id="skip-feedback" class="btn btn-ghost btn-sm">Skip</button>
         </div>
       </div>
@@ -105,9 +140,15 @@ const RecordPage = (function () {
     );
     document.getElementById('clear-audio').addEventListener('click', clearAudio);
     document.getElementById('analyze-btn').addEventListener('click', runAnalysis);
-    document.querySelectorAll('.feedback-opt').forEach(btn =>
+    document.getElementById('fb-accuracy').addEventListener('input', e =>
+      (document.getElementById('fb-accuracy-val').textContent = e.target.value)
+    );
+    document.getElementById('fb-site').addEventListener('input', e =>
+      (document.getElementById('fb-site-val').textContent = e.target.value)
+    );
+    document.querySelectorAll('.frogwatch-opt').forEach(btn =>
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.feedback-opt').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
       })
     );
@@ -414,6 +455,9 @@ const RecordPage = (function () {
       });
       currentEntryId = entry.id;
 
+      currentSpecies    = apiResult.species;
+      currentConfidence = apiResult.confidence;
+
       window.DB?.insertObservation({
         id:            entry.id,
         type:          audioBlob ? 'recording' : 'upload',
@@ -464,37 +508,45 @@ const RecordPage = (function () {
 
     analyzeBtn.disabled    = false;
     analyzeBtn.textContent = 'Analyze again';
+
+    if (!apiError) {
+      const feedbackPanel = document.getElementById('feedback-panel');
+      if (feedbackPanel) {
+        feedbackPanel.classList.remove('hidden');
+        feedbackPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
   }
 
   // ── Feedback ──────────────────────────────────────────
-  function submitFeedback() {
-    const selected = document.querySelector('.feedback-opt.selected');
-    if (!selected) {
-      const opts = document.getElementById('feedback-options');
-      opts.classList.add('shake');
-      setTimeout(() => opts.classList.remove('shake'), 400);
-      return;
-    }
+  async function submitFeedback() {
+    const name           = (document.getElementById('fb-name')?.value || '').trim();
+    const accuracyRating = parseInt(document.getElementById('fb-accuracy')?.value ?? '5', 10);
+    const siteRating     = parseInt(document.getElementById('fb-site')?.value ?? '5', 10);
+    const frogwatchEl    = document.querySelector('.frogwatch-opt.selected');
+    const frogwatch      = frogwatchEl?.dataset.val ?? '';
+    const note           = (document.getElementById('fb-note')?.value || '').trim();
 
-    if (currentEntryId !== null) {
-      const verdict = selected.dataset.val;
-      const note    = document.getElementById('feedback-note').value.trim();
+    let userId = null;
+    try { userId = (await Auth?.getUser())?.sub ?? null; } catch {}
 
-      Store.updateEntry(currentEntryId, {
-        feedback: { verdict, note, timestamp: new Date().toISOString() },
-      });
-
-      window.DB?.insertFeedback({
-        observationId: currentEntryId,
-        verdict,
-        note,
-      }).catch(() => {});
-    }
+    window.DB?.insertFeedback({
+      observationId:  currentEntryId,
+      userId,
+      name,
+      accuracyRating,
+      siteRating,
+      frogwatch,
+      note,
+      species:    currentSpecies,
+      confidence: currentConfidence,
+      userAgent:  navigator.userAgent,
+    }).catch(() => {});
 
     document.getElementById('feedback-panel').innerHTML = `
       <div class="feedback-thanks">
         <span class="check-icon">✓</span>
-        <p>Feedback recorded — thank you!</p>
+        <p>Feedback submitted — thank you!</p>
       </div>
     `;
   }

@@ -39,8 +39,15 @@ const _ready = (async () => {
       id              VARCHAR PRIMARY KEY,
       observation_id  VARCHAR,
       created_at      VARCHAR,
-      verdict         VARCHAR,
+      user_id         VARCHAR,
+      name            VARCHAR,
+      accuracy_rating INTEGER,
+      site_rating     INTEGER,
+      frogwatch       VARCHAR,
       note            VARCHAR,
+      species         VARCHAR,
+      confidence      DOUBLE,
+      user_agent      VARCHAR,
       synced          BOOLEAN DEFAULT false
     )
   `);
@@ -79,8 +86,15 @@ async function getUnsyncedFeedback() {
     id:             r.id,
     observation_id: r.observation_id,
     created_at:     r.created_at,
-    verdict:        r.verdict,
+    user_id:        r.user_id,
+    name:           r.name,
+    accuracy_rating: r.accuracy_rating,
+    site_rating:    r.site_rating,
+    frogwatch:      r.frogwatch,
     note:           r.note,
+    species:        r.species,
+    confidence:     r.confidence,
+    user_agent:     r.user_agent,
   }));
 }
 
@@ -100,15 +114,26 @@ window.DB = {
     return insertObservation(data);
   },
 
-  async insertFeedback({ observationId, verdict, note }) {
+  async insertFeedback({ observationId, userId, name, accuracyRating, siteRating, frogwatch, note, species, confidence, userAgent }) {
     if (!await _guard()) return;
     const stmt = await _conn.prepare(
-      `INSERT INTO feedback (id, observation_id, created_at, verdict, note)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO feedback
+         (id, observation_id, created_at, user_id, name, accuracy_rating, site_rating, frogwatch, note, species, confidence, user_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     await stmt.query(
-      crypto.randomUUID(), String(observationId),
-      new Date().toISOString(), verdict, note ?? '',
+      crypto.randomUUID(),
+      String(observationId ?? ''),
+      new Date().toISOString(),
+      userId     ?? '',
+      name       ?? '',
+      accuracyRating != null ? Number(accuracyRating) : null,
+      siteRating     != null ? Number(siteRating)     : null,
+      frogwatch  ?? '',
+      note       ?? '',
+      species    ?? '',
+      confidence != null ? Number(confidence) : null,
+      userAgent  ?? '',
     );
     await stmt.close();
   },

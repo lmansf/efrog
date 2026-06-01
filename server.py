@@ -230,12 +230,13 @@ def _databricks_ready():
 def sync_data():
     if request.method == 'OPTIONS':
         return '', 204
-    if not _databricks_ready():
-        return jsonify({'error': 'Databricks or Auth0 not configured on server'}), 503
 
     user_id, err = _require_auth()
     if err:
         return err
+
+    if not _databricks_ready():
+        return jsonify({'error': 'Databricks or Auth0 not configured on server'}), 503
 
     data         = request.get_json(force=True) or {}
     observations = data.get('observations', [])
@@ -286,12 +287,13 @@ def sync_data():
 def get_observations():
     if request.method == 'OPTIONS':
         return '', 204
-    if not _databricks_ready():
-        return jsonify({'error': 'Databricks or Auth0 not configured on server'}), 503
 
     user_id, err = _require_auth()
     if err:
         return err
+
+    if not _databricks_ready():
+        return jsonify({'error': 'Databricks or Auth0 not configured on server'}), 503
 
     try:
         with _databricks_conn() as conn:

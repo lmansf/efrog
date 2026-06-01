@@ -34,7 +34,8 @@
         </p>
         <p class="welcome-body">
           Enable <strong>Feedback Mode</strong> to save your analyses and
-          access the <strong>History</strong> page.
+          access the <strong>History</strong> page. You can turn it off
+          at any time — your history stays.
         </p>
         <div class="welcome-actions">
           <button id="welcome-enable-btn" class="btn btn-primary">Enable Feedback Mode</button>

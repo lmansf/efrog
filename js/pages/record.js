@@ -324,6 +324,7 @@ const RecordPage = (function () {
   async function classifyAudio() {
     const payload = audioBlob || currentFile;
     if (!payload) throw new Error('No audio loaded');
+    if (!API_BASE) throw new Error('API not configured — set EFROG_API_URL in js/config.js');
 
     const formData = new FormData();
     const filename = audioBlob ? 'recording.webm' : currentFile.name;
@@ -397,7 +398,7 @@ const RecordPage = (function () {
         <div class="result-placeholder">
           <div class="result-badge result-badge-error">Error</div>
           <p class="result-hint">${escHtml(apiError)}</p>
-          <p class="result-hook">Start the server with <code>python server.py</code></p>
+          ${_local ? '<p class="result-hook">Start the server with <code>python server.py</code></p>' : ''}
         </div>
       `;
     } else {

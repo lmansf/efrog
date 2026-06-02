@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
       screen.classList.add('boot-exit');
       screen.addEventListener('animationend', () => {
         screen.remove();
-        window.Welcome?.maybeShow();
       }, { once: true });
     }
 

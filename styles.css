@@ -1181,78 +1181,9 @@ body {
 /* ── Utilities ─────────────────────────────────────────── */
 .hidden { display: none !important; }
 
-/* ── Welcome modal ─────────────────────────────────────── */
-@keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+/* ── Feedback toast ─────────────────────────────────────── */
 @keyframes fadeOut  { from { opacity: 1; } to { opacity: 0; } }
 @keyframes slideUp  { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-
-.welcome-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(28, 25, 22, .52);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 300;
-  padding: 20px;
-  animation: fadeIn .2s var(--ease-out);
-}
-.welcome-overlay.welcome-exit {
-  animation: fadeOut .2s var(--ease-out) forwards;
-}
-
-.welcome-modal {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 32px 28px;
-  max-width: 380px;
-  width: 100%;
-  box-shadow: var(--shadow-lg);
-  text-align: center;
-  animation: slideUp .28s var(--ease-spring);
-}
-
-.welcome-frog  { font-size: 2.4rem; margin-bottom: 12px; }
-.welcome-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 12px; color: var(--text); }
-.welcome-body  { font-size: .875rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 10px; }
-
-.welcome-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 20px;
-}
-.welcome-actions .btn { width: 100%; }
-
-/* ── Toggle hint tooltip ────────────────────────────────── */
-.toggle-hint {
-  position: fixed;
-  z-index: 200;
-  background: var(--text);
-  color: var(--surface);
-  font-size: .75rem;
-  line-height: 1.45;
-  padding: 7px 11px;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  max-width: 210px;
-  text-align: right;
-  cursor: pointer;
-  animation: fadeIn .25s var(--ease-out);
-}
-.toggle-hint::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  right: 14px;
-  width: 9px;
-  height: 9px;
-  background: var(--text);
-  transform: rotate(45deg);
-  border-radius: 2px;
-}
-
-/* ── Feedback toast ─────────────────────────────────────── */
 .feedback-toast {
   position: fixed;
   bottom: calc(var(--bottom-nav-h) + 16px);

@@ -1,8 +1,5 @@
 const HistoryPage = (function () {
   function render() {
-    if (!Store.hasFeedbackEverEnabled()) {
-      return renderLocked();
-    }
     const entries = Store.getHistory();
     return `
       <div class="page-header">
@@ -12,20 +9,6 @@ const HistoryPage = (function () {
           : ''}
       </div>
       ${entries.length === 0 ? renderEmpty() : renderList(entries)}
-    `;
-  }
-
-  function renderLocked() {
-    return `
-      <div class="empty-state">
-        <div class="empty-icon">📋</div>
-        <p class="empty-title">Enable Feedback Mode to unlock History</p>
-        <p class="empty-desc">
-          Turn on Feedback Mode once to start saving your analyses here.
-          You can turn it off afterwards — your history stays.
-        </p>
-        <button class="btn btn-primary" id="history-enable-feedback">Enable Feedback Mode</button>
-      </div>
     `;
   }
 
@@ -90,15 +73,6 @@ const HistoryPage = (function () {
   }
 
   function init() {
-    const enableBtn = document.getElementById('history-enable-feedback');
-    if (enableBtn) {
-      enableBtn.addEventListener('click', () => {
-        Store.setFeedbackMode(true);
-        window._syncFeedbackToggle?.();
-        Router.navigate();
-      });
-    }
-
     const clearBtn = document.getElementById('clear-history');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {

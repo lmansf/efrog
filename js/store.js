@@ -1,7 +1,6 @@
 const Store = {
-  HISTORY_KEY:       'efrog_history',
-  FEEDBACK_KEY:      'efrog_feedback_mode',
-  FEEDBACK_EVER_KEY: 'efrog_feedback_ever',
+  HISTORY_KEY:  'efrog_history',
+  FEEDBACK_KEY: 'efrog_feedback_mode',
 
   getHistory() {
     try { return JSON.parse(localStorage.getItem(this.HISTORY_KEY) || '[]'); }
@@ -30,15 +29,11 @@ const Store = {
   },
 
   getFeedbackMode() {
-    return localStorage.getItem(this.FEEDBACK_KEY) === 'true';
+    const val = localStorage.getItem(this.FEEDBACK_KEY);
+    return val === null ? true : val === 'true';
   },
 
   setFeedbackMode(val) {
     localStorage.setItem(this.FEEDBACK_KEY, String(val));
-    if (val) localStorage.setItem(this.FEEDBACK_EVER_KEY, 'true');
-  },
-
-  hasFeedbackEverEnabled() {
-    return localStorage.getItem(this.FEEDBACK_EVER_KEY) === 'true';
   },
 };

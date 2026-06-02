@@ -9,6 +9,7 @@ const RecordPage = (function () {
   let currentFile     = null;   // set for file uploads
   let currentFileName = null;
   let currentEntryId  = null;
+  let currentDuration = null;   // seconds; set from recordSeconds or audio loadedmetadata
   let isRecording     = false;
   let recordTimer     = null;
   let recordSeconds   = 0;
@@ -79,6 +80,7 @@ const RecordPage = (function () {
       </div>
 
       <div id="feedback-panel" class="panel panel-feedback hidden">
+        <div id="feedback-result" class="feedback-result hidden"></div>
         <h2 class="panel-title">Give Feedback</h2>
 
         <div class="form-group">
@@ -132,6 +134,7 @@ const RecordPage = (function () {
     if (isRecording) stopRecording();
     clearInterval(recordTimer);
     audioBlob = null; currentFile = null; currentFileName = null; currentEntryId = null;
+    currentDuration = null;
     isRecording = false; recordSeconds = 0;
 
     setupUpload();
@@ -179,9 +182,10 @@ const RecordPage = (function () {
   }
 
   function handleFile(file) {
-    audioBlob     = null;
-    currentFile   = file;
+    audioBlob       = null;
+    currentFile     = file;
     currentFileName = file.name;
+    currentDuration = null;
     showAudioPreview(URL.createObjectURL(file), file.name);
   }
 
@@ -194,8 +198,9 @@ const RecordPage = (function () {
 
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
       mediaRecorder.onstop = () => {
-        audioBlob     = new Blob(audioChunks, { type: 'audio/webm' });
-        currentFile   = null;
+        audioBlob       = new Blob(audioChunks, { type: 'audio/webm' });
+        currentFile     = null;
+        currentDuration = recordSeconds;
         const name    = `Recording — ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         currentFileName = name;
         showAudioPreview(URL.createObjectURL(audioBlob), name);
@@ -241,12 +246,21 @@ const RecordPage = (function () {
     const previewEl = document.getElementById('audio-preview');
     if (!previewEl) return;
     const player = document.getElementById('audio-player');
-    if (player) player.src = url;
+    if (player) {
+      player.src = url;
+      player.addEventListener('loadedmetadata', () => {
+        if (currentDuration === null && !isNaN(player.duration)) {
+          currentDuration = player.duration;
+        }
+      }, { once: true });
+    }
     const fnEl = document.getElementById('audio-filename');
     if (fnEl) fnEl.textContent = name;
     previewEl.classList.remove('hidden');
     document.getElementById('result-panel').classList.add('hidden');
     document.getElementById('feedback-panel').classList.add('hidden');
+    const fr = document.getElementById('feedback-result');
+    if (fr) { fr.classList.add('hidden'); fr.innerHTML = ''; }
     currentEntryId = null;
   }
 
@@ -257,6 +271,7 @@ const RecordPage = (function () {
       document.getElementById(id)?.classList.add('hidden')
     );
     audioBlob = null; currentFile = null; currentFileName = null; currentEntryId = null;
+    currentDuration = null;
   }
 
   // ── Loading Overlay ───────────────────────────────────
@@ -385,9 +400,11 @@ const RecordPage = (function () {
 
     const resultPanel   = document.getElementById('result-panel');
     const resultContent = document.getElementById('result-content');
-    resultPanel.classList.remove('hidden');
+    const feedbackResult = document.getElementById('feedback-result');
+    if (feedbackResult) { feedbackResult.classList.add('hidden'); feedbackResult.innerHTML = ''; }
 
     if (apiError) {
+      resultPanel.classList.remove('hidden');
       resultContent.innerHTML = `
         <div class="result-placeholder">
           <div class="result-badge result-badge-error">Error</div>
@@ -415,6 +432,7 @@ const RecordPage = (function () {
         id:            entry.id,
         type:          audioBlob ? 'recording' : 'upload',
         name:          currentFileName || 'Audio',
+        duration:      currentDuration,
         species:       apiResult.species,
         confidence:    apiResult.confidence,
         probabilities: apiResult.probabilities,
@@ -437,7 +455,7 @@ const RecordPage = (function () {
           </div>
         `).join('');
 
-      resultContent.innerHTML = confident ? `
+      const predictionHtml = confident ? `
         <div class="result-species">
           <div class="result-species-name">${formatSpecies(apiResult.species)}</div>
           <div class="result-confidence-badge confidence-high">${pct}% confidence</div>
@@ -451,9 +469,14 @@ const RecordPage = (function () {
         <div class="result-probabilities">${probBars}</div>
       `;
 
+      if (feedbackResult) {
+        feedbackResult.innerHTML = predictionHtml;
+        feedbackResult.classList.remove('hidden');
+      }
+
       // Animate bars in after DOM paint
       requestAnimationFrame(() => {
-        resultContent.querySelectorAll('.prob-bar').forEach(bar => {
+        feedbackResult?.querySelectorAll('.prob-bar').forEach(bar => {
           bar.style.width = bar.dataset.width;
         });
       });

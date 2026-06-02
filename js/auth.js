@@ -33,8 +33,12 @@ const _ready = (async () => {
   // On authenticated page load: sync local DuckDB → Databricks
   if (await _client.isAuthenticated()) {
     try {
-      const token = await _client.getTokenSilently();
-      await window.DB?.sync(token);
+      const [token, user] = await Promise.all([
+        _client.getTokenSilently(),
+        _client.getUser(),
+      ]);
+      const username = user?.name ?? user?.email ?? '';
+      await window.DB?.sync(token, username);
     } catch (e) {
       console.warn('[Auth] post-login sync failed:', e.message);
     }

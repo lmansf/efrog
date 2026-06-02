@@ -202,14 +202,21 @@ def _ensure_tables(cur):
         CREATE TABLE IF NOT EXISTS {_DBC_PREFIX}.observations (
             id            STRING,
             user_id       STRING,
+            username      STRING,
             created_at    STRING,
             type          STRING,
             name          STRING,
+            duration      DOUBLE,
             species       STRING,
             confidence    DOUBLE,
             probabilities STRING
         ) USING DELTA
     """)
+    for col in ['username STRING', 'duration DOUBLE']:
+        try:
+            cur.execute(f"ALTER TABLE {_DBC_PREFIX}.observations ADD COLUMN IF NOT EXISTS {col}")
+        except Exception:
+            pass
     cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {_DBC_PREFIX}.feedback (
             id              STRING,
@@ -258,13 +265,16 @@ def sync_data():
                         USING (SELECT %s AS id, %s AS user_id) AS s
                           ON t.id = s.id AND t.user_id = s.user_id
                         WHEN NOT MATCHED THEN INSERT
-                          (id, user_id, created_at, type, name, species, confidence, probabilities)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                          (id, user_id, username, created_at, type, name, duration, species, confidence, probabilities)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, [
                         obs.get('id'), user_id,
                         obs.get('id'), user_id,
+                        obs.get('username', ''),
                         obs.get('created_at', ''), obs.get('type', ''),
-                        obs.get('name', ''),       obs.get('species', ''),
+                        obs.get('name', ''),
+                        float(obs['duration']) if obs.get('duration') is not None else None,
+                        obs.get('species', ''),
                         float(obs.get('confidence') or 0),
                         _json.dumps(obs.get('probabilities') or {}),
                     ])
@@ -313,7 +323,7 @@ def get_observations():
         with _databricks_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(f"""
-                    SELECT id, created_at, type, name, species, confidence, probabilities
+                    SELECT id, created_at, type, name, duration, species, confidence, probabilities
                     FROM {_DBC_PREFIX}.observations
                     WHERE user_id = %s
                     ORDER BY created_at DESC

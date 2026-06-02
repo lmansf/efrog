@@ -28,6 +28,7 @@ const _ready = (async () => {
       created_at    VARCHAR,
       type          VARCHAR,
       name          VARCHAR,
+      duration      DOUBLE,
       species       VARCHAR,
       confidence    DOUBLE,
       probabilities VARCHAR
@@ -63,16 +64,18 @@ async function _guard() {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-async function insertObservation({ id, created_at, type, name, species, confidence, probabilities }) {
+async function insertObservation({ id, created_at, type, name, duration, species, confidence, probabilities }) {
   if (!await _guard()) return;
   const stmt = await _conn.prepare(
-    `INSERT INTO observations (id, created_at, type, name, species, confidence, probabilities)
-     VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`
+    `INSERT INTO observations (id, created_at, type, name, duration, species, confidence, probabilities)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`
   );
   await stmt.query(
     String(id),
     created_at ?? new Date().toISOString(),
-    type, name, species,
+    type, name,
+    duration != null ? Number(duration) : null,
+    species,
     Number(confidence),
     typeof probabilities === 'string' ? probabilities : JSON.stringify(probabilities),
   );
@@ -146,6 +149,7 @@ window.DB = {
       created_at:    r.created_at,
       type:          r.type,
       name:          r.name,
+      duration:      r.duration,
       species:       r.species,
       confidence:    r.confidence,
       probabilities: typeof r.probabilities === 'string'
@@ -172,7 +176,7 @@ window.DB = {
 
   // Push unsynced local rows to Databricks, then pull remote history back.
   // Called automatically on sign-in by auth.js.
-  async sync(token) {
+  async sync(token, username = '') {
     if (!await _guard()) return;
     if (!EFROG_API_URL) return;
 
@@ -181,13 +185,15 @@ window.DB = {
       getUnsyncedFeedback(),
     ]);
 
+    const stampedObservations = observations.map(o => ({ ...o, username }));
+
     const res = await fetch(`${EFROG_API_URL}/sync`, {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ observations, feedback: feedbackRows }),
+      body: JSON.stringify({ observations: stampedObservations, feedback: feedbackRows }),
     });
 
     if (!res.ok) {

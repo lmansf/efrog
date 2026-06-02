@@ -56,10 +56,17 @@ async function _renderNav() {
 window.Auth = {
   async login() {
     await _ready;
-    if (!_client) return;
-    await _client.loginWithRedirect({
-      appState: { returnTo: window.location.hash || '#record' },
-    });
+    if (!_client) {
+      console.error('[Auth] client not initialised — check AUTH0_DOMAIN / AUTH0_CLIENT_ID in config.js');
+      return;
+    }
+    try {
+      await _client.loginWithRedirect({
+        appState: { returnTo: window.location.hash || '#record' },
+      });
+    } catch (err) {
+      console.error('[Auth] loginWithRedirect failed:', err.message);
+    }
   },
 
   async logout() {

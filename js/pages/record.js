@@ -80,7 +80,6 @@ const RecordPage = (function () {
       </div>
 
       <div id="feedback-panel" class="panel panel-feedback hidden">
-        <div id="feedback-result" class="feedback-result hidden"></div>
         <h2 class="panel-title">Give Feedback</h2>
 
         <div class="form-group">
@@ -259,8 +258,6 @@ const RecordPage = (function () {
     previewEl.classList.remove('hidden');
     document.getElementById('result-panel').classList.add('hidden');
     document.getElementById('feedback-panel').classList.add('hidden');
-    const fr = document.getElementById('feedback-result');
-    if (fr) { fr.classList.add('hidden'); fr.innerHTML = ''; }
     currentEntryId = null;
   }
 
@@ -400,11 +397,9 @@ const RecordPage = (function () {
 
     const resultPanel   = document.getElementById('result-panel');
     const resultContent = document.getElementById('result-content');
-    const feedbackResult = document.getElementById('feedback-result');
-    if (feedbackResult) { feedbackResult.classList.add('hidden'); feedbackResult.innerHTML = ''; }
+    resultPanel.classList.remove('hidden');
 
     if (apiError) {
-      resultPanel.classList.remove('hidden');
       resultContent.innerHTML = `
         <div class="result-placeholder">
           <div class="result-badge result-badge-error">Error</div>
@@ -455,7 +450,7 @@ const RecordPage = (function () {
           </div>
         `).join('');
 
-      const predictionHtml = confident ? `
+      resultContent.innerHTML = confident ? `
         <div class="result-species">
           <div class="result-species-name">${formatSpecies(apiResult.species)}</div>
           <div class="result-confidence-badge confidence-high">${pct}% confidence</div>
@@ -469,14 +464,9 @@ const RecordPage = (function () {
         <div class="result-probabilities">${probBars}</div>
       `;
 
-      if (feedbackResult) {
-        feedbackResult.innerHTML = predictionHtml;
-        feedbackResult.classList.remove('hidden');
-      }
-
       // Animate bars in after DOM paint
       requestAnimationFrame(() => {
-        feedbackResult?.querySelectorAll('.prob-bar').forEach(bar => {
+        resultContent.querySelectorAll('.prob-bar').forEach(bar => {
           bar.style.width = bar.dataset.width;
         });
       });

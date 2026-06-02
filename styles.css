@@ -454,13 +454,6 @@ body {
   font-size: .85em;
 }
 
-/* Prediction decoration at top of feedback panel */
-.feedback-result {
-  margin-bottom: 18px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border) 65%);
-}
-
 /* Feedback internals */
 .feedback-prompt  { font-size: .9rem; color: var(--text-muted); margin-bottom: 14px; }
 .feedback-options { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }

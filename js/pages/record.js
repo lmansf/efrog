@@ -431,6 +431,16 @@ const RecordPage = (function () {
         species:       apiResult.species,
         confidence:    apiResult.confidence,
         probabilities: apiResult.probabilities,
+      }).then(async () => {
+        try {
+          if (await window.Auth?.isAuthenticated()) {
+            const [token, user] = await Promise.all([
+              window.Auth.getToken(),
+              window.Auth.getUser(),
+            ]);
+            await window.DB.sync(token, user?.name ?? user?.email ?? '');
+          }
+        } catch {}
       }).catch(() => {});
 
       const CONFIDENCE_THRESHOLD = 0.90;
@@ -486,8 +496,10 @@ const RecordPage = (function () {
         if (site) { site.value = 5; feedbackPanel.querySelector('#fb-site-val').textContent = '5'; }
         if (feedbackPanel.querySelector('#fb-note'))      feedbackPanel.querySelector('#fb-note').value = '';
         feedbackPanel.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
-        feedbackPanel.classList.remove('hidden');
-        feedbackPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (Store.getFeedbackMode()) {
+          feedbackPanel.classList.remove('hidden');
+          feedbackPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       }
     }
   }

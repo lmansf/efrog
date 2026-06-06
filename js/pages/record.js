@@ -6,6 +6,7 @@ const RecordPage = (function () {
   let mediaRecorder   = null;
   let audioChunks     = [];
   let audioBlob       = null;   // set for recordings
+  let recordingMimeType = '';
   let currentFile     = null;   // set for file uploads
   let currentFileName = null;
   let currentEntryId  = null;
@@ -189,15 +190,32 @@ const RecordPage = (function () {
   }
 
   // ── Recording ─────────────────────────────────────────
+  function _bestMimeType() {
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? '';
+  }
+
+  function _mimeToExt(mime) {
+    if (mime.includes('mp4')) return 'mp4';
+    if (mime.includes('ogg')) return 'ogg';
+    return 'webm';
+  }
+
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
+      recordingMimeType = _bestMimeType();
+      try {
+        mediaRecorder = new MediaRecorder(stream, recordingMimeType ? { mimeType: recordingMimeType } : {});
+      } catch {
+        mediaRecorder = new MediaRecorder(stream);
+      }
 
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
       mediaRecorder.onstop = () => {
-        audioBlob       = new Blob(audioChunks, { type: 'audio/webm' });
+        const actualType = mediaRecorder.mimeType || recordingMimeType || 'audio/webm';
+        audioBlob       = new Blob(audioChunks, { type: actualType });
         currentFile     = null;
         currentDuration = recordSeconds;
         const name    = `Recording — ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -338,7 +356,7 @@ const RecordPage = (function () {
     if (!API_BASE) throw new Error('API not configured — set EFROG_API_URL in js/config.js');
 
     const formData = new FormData();
-    const filename = audioBlob ? 'recording.webm' : currentFile.name;
+    const filename = audioBlob ? `recording.${_mimeToExt(audioBlob.type)}` : currentFile.name;
     formData.append('audio', payload, filename);
 
     const controller = new AbortController();

@@ -1023,105 +1023,81 @@ body {
   to { opacity: 0; transform: translateY(-6px); }
 }
 
-/* ── Frog face ── */
-.boot-frog-face {
+/* ── Slides ── */
+.boot-slides {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  width: 240px;
-  height: 210px;
-  background: #3c6e42;
+  transform: translate(-50%, -55%);
+  width: min(480px, 88vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.boot-slides-track {
+  display: grid;
+  width: 100%;
+}
+
+.boot-slide {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .55s ease, transform .55s ease;
+  pointer-events: none;
+}
+
+.boot-slide.boot-slide-active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.boot-slide-icon {
+  font-size: 3rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, .5));
+}
+
+.boot-slide-title {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -.01em;
+}
+
+.boot-slide-body {
+  margin: 0;
+  font-size: .95rem;
+  color: rgba(255, 255, 255, .58);
+  line-height: 1.65;
+  max-width: 380px;
+}
+
+.boot-slide-dots {
+  display: flex;
+  gap: 10px;
+}
+
+.boot-slide-dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  box-shadow:
-    0 16px 48px rgba(0, 0, 0, .55),
-    inset 0 -10px 24px rgba(0, 0, 0, .22);
+  background: rgba(255, 255, 255, .2);
+  transition: background .4s ease, transform .4s ease;
 }
 
-/* Lighter belly patch */
-.boot-frog-face::before {
-  content: '';
-  position: absolute;
-  bottom: 22px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 130px;
-  height: 80px;
-  background: rgba(160, 210, 130, .18);
-  border-radius: 50%;
-}
-
-.boot-eye {
-  position: absolute;
-  top: -20px;
-  width: 74px;
-  height: 74px;
-  border-radius: 50%;
-  background: #cfc5a0;
-  overflow: hidden;
-  box-shadow:
-    inset 0 -6px 14px rgba(0, 0, 0, .14),
-    0 8px 20px rgba(0, 0, 0, .38);
-}
-
-.boot-eye-l { left: 24px; }
-.boot-eye-r { right: 24px; }
-
-.boot-pupil {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 32px;
-  height: 32px;
-  margin: -16px 0 0 -16px;
-  border-radius: 50%;
-  background: #120d06;
-}
-
-/* Phase 1 (0–22%): looking up — small pupils near top of eye
-   Phase 2 (35–52%): noticing — pupils drift toward centre
-   Phase 3 (65–100%): wide-eyed, fixed on fly in corner — pupils drop down-right, dilated */
-.boot-eye-l .boot-pupil { animation: pupilL 8s ease-in-out infinite; }
-.boot-eye-r .boot-pupil { animation: pupilR 8s ease-in-out infinite; }
-
-@keyframes pupilL {
-  0%, 22%  { transform: translate(-3px, -15px) scale(.80);  }
-  35%, 52% { transform: translate( 0px,  -5px) scale(.95);  }
-  65%, 100%{ transform: translate( 7px,   8px) scale(1.32); }
-}
-
-@keyframes pupilR {
-  0%, 22%  { transform: translate( 3px, -15px) scale(.80);  }
-  35%, 52% { transform: translate( 4px,  -5px) scale(.95);  }
-  65%, 100%{ transform: translate( 9px,   8px) scale(1.32); }
-}
-
-/* Mouth — overflow clip on a growing circle → wider arc = more open mouth */
-.boot-mouth-clip {
-  position: absolute;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 140px;
-  height: 58px;
-  overflow: hidden;
-}
-
-.boot-mouth-shape {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  border: 5px solid #1e4422;
-  background: #0d0a04;
-  animation: mouthShape 8s ease-in-out infinite;
-}
-
-@keyframes mouthShape {
-  0%, 22%  { width: 48px;  height: 48px;  }
-  35%, 52% { width: 82px;  height: 82px;  }
-  65%, 100%{ width: 130px; height: 130px; }
+.boot-slide-dot.boot-slide-dot-active {
+  background: #6fbf73;
+  transform: scale(1.5);
 }
 
 /* ── Fly orbit (replaces spinner rings) ── */

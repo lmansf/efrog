@@ -19,8 +19,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const _local   = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
     const API_BASE = _local ? 'http://localhost:5000' : EFROG_API_URL;
 
+    // ── Slide carousel ──────────────────────────────────────
+    const slides   = screen.querySelectorAll('.boot-slide');
+    const dots     = screen.querySelectorAll('.boot-slide-dot');
+    let slideIdx   = 0;
+
+    function goToSlide(idx) {
+      slides[slideIdx].classList.remove('boot-slide-active');
+      dots[slideIdx].classList.remove('boot-slide-dot-active');
+      slideIdx = (idx + slides.length) % slides.length;
+      slides[slideIdx].classList.add('boot-slide-active');
+      dots[slideIdx].classList.add('boot-slide-dot-active');
+    }
+
+    const slideTimer = setInterval(() => goToSlide(slideIdx + 1), 3800);
+
     function dismiss() {
       clearInterval(dotTimer);
+      clearInterval(slideTimer);
       screen.classList.add('boot-exit');
       screen.addEventListener('animationend', () => {
         screen.remove();

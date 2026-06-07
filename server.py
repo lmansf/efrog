@@ -20,7 +20,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # ── Config ───────────────────────────────────────────────────────────────────
-MODEL_PATH    = os.environ.get('EFROG_MODEL_PATH', './frog_classifier3.onnx')
+MODEL_PATH    = os.environ.get('EFROG_MODEL_PATH', './frog_classifier.onnx')
 LABEL_CLASSES = ['cane_toad', 'oak_toad', 'southern_toad']
 SAMPLE_RATE   = 22050
 DURATION      = 5.0

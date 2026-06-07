@@ -6,7 +6,7 @@ services:
     startCommand: python server.py
     envVars:
       - key: EFROG_MODEL_PATH
-        value: ./frog_classifier3.onnx
+        value: ./frog_classifier.onnx
 
       # Auth0
       - key: AUTH0_DOMAIN

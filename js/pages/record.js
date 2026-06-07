@@ -357,7 +357,6 @@ const RecordPage = (function () {
     const overlay = document.getElementById('analyze-overlay');
     if (overlay?._statusTimer) clearInterval(overlay._statusTimer);
     document.body.style.overflow = '';
-    const overlay = document.getElementById('analyze-overlay');
     if (!overlay) return;
 
     const top = overlay.querySelector('.overlay-curtain-top');

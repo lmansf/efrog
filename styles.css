@@ -1154,6 +1154,21 @@ body {
   color: rgba(255, 255, 255, .35);
 }
 
+.boot-skip-btn {
+  margin-top: 10px;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, .25);
+  color: rgba(255, 255, 255, .5);
+  font-family: inherit;
+  font-size: .7rem;
+  letter-spacing: .06em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+}
+.boot-skip-btn:hover { border-color: rgba(255,255,255,.5); color: rgba(255,255,255,.8); }
+
 /* ── Utilities ─────────────────────────────────────────── */
 .hidden { display: none !important; }
 

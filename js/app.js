@@ -55,6 +55,16 @@ document.addEventListener('DOMContentLoaded', () => {
       [15, 'Loading model — first visit takes a moment…'],
       [30, 'Still warming up, almost there…'],
     ];
+    // Show a skip button after 20 s so users are never permanently stuck
+    setTimeout(() => {
+      if (!document.getElementById('boot-screen')) return;
+      const skipBtn = document.createElement('button');
+      skipBtn.textContent = 'Continue anyway';
+      skipBtn.className = 'boot-skip-btn';
+      skipBtn.onclick = () => { minWait.then(dismiss); };
+      screen.querySelector('.boot-corner').appendChild(skipBtn);
+    }, 20000);
+
     let attempts = 0;
     async function poll() {
       attempts++;

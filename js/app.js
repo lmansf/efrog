@@ -84,6 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
           dismiss();
           return;
         }
+        if (data.status === 'loading') {
+          subEl.textContent = 'Loading model — almost ready…';
+        }
       } catch {}
       setTimeout(poll, 1500);
     }

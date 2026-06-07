@@ -12,6 +12,7 @@ Model path (pick one):
 import os
 import subprocess
 import tempfile
+import threading
 
 import numpy as np
 import librosa
@@ -45,25 +46,30 @@ def _cors(response):
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return response
 
-# ── Load model at startup ─────────────────────────────────────────────────────
-print(f'Loading model from {MODEL_PATH!r} …')
-try:
-    _providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-    session    = ort.InferenceSession(MODEL_PATH, providers=_providers)
-    input_name = session.get_inputs()[0].name
-    print(f'Model ready.  Input: {input_name!r}  '
-          f'Provider: {session.get_providers()[0]}')
-    # Run one dummy inference so ONNX compiles/optimises the graph now,
-    # not on the first real request (which would cause a timeout).
-    # 5 s @ 16 kHz with center=True padding → 157 time frames
-    _dummy = np.zeros((1, 1, N_MELS, 157), dtype=np.float32)
-    session.run(None, {input_name: _dummy})
-    print('Warm-up done — first inference is ready.')
-except Exception as exc:
-    print(f'ERROR: could not load model — {exc}')
-    print('Set EFROG_MODEL_PATH or place frog_classifier.onnx next to server.py.')
-    session    = None
-    input_name = None
+# ── Load model in background thread ──────────────────────────────────────────
+# Loading in a thread lets gunicorn start up immediately; the boot screen polls
+# /health until status == 'ok'.
+session      = None
+input_name   = None
+_model_state = 'loading'   # 'loading' | 'ok' | 'error'
+
+def _load_model():
+    global session, input_name, _model_state
+    print(f'Loading model from {MODEL_PATH!r} …')
+    try:
+        _providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        sess       = ort.InferenceSession(MODEL_PATH, providers=_providers)
+        iname      = sess.get_inputs()[0].name
+        print(f'Model ready.  Input: {iname!r}  Provider: {sess.get_providers()[0]}')
+        _dummy = np.zeros((1, 1, N_MELS, 157), dtype=np.float32)
+        sess.run(None, {iname: _dummy})
+        print('Warm-up done — first inference is ready.')
+        session, input_name, _model_state = sess, iname, 'ok'
+    except Exception as exc:
+        print(f'ERROR: could not load model — {exc}')
+        _model_state = 'error'
+
+threading.Thread(target=_load_model, daemon=True).start()
 
 
 # ── Audio → model input ───────────────────────────────────────────────────────
@@ -110,7 +116,7 @@ def audio_to_model_input(path: str) -> np.ndarray:
 @app.route('/health')
 def health():
     return jsonify({
-        'status':  'ok' if session else 'no_model',
+        'status':  _model_state,   # 'loading' | 'ok' | 'error'
         'classes': LABEL_CLASSES,
     })
 
@@ -119,6 +125,8 @@ def health():
 def classify():
     if request.method == 'OPTIONS':
         return '', 204
+    if _model_state == 'loading':
+        return jsonify({'error': 'Model is still loading — please wait a moment'}), 503
     if session is None:
         return jsonify({'error': 'Model not loaded — check server logs'}), 503
 

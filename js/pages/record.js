@@ -329,12 +329,33 @@ const RecordPage = (function () {
         el.textContent = FROG_FACTS[factIndex];
         el.classList.remove('fact-fade');
       }, 300);
-    }, 10000);
+    }, 4000);
+
+    // Progressive status messages based on elapsed time
+    const STATUS_MSGS = [
+      [3,  'Decoding audio…'],
+      [8,  'Computing mel spectrogram…'],
+      [15, 'Running neural network…'],
+      [25, 'Almost there…'],
+      [40, 'Still working — large file or slow connection…'],
+    ];
+    const _startTs = Date.now();
+    const _statusTimer = setInterval(() => {
+      const sub = document.querySelector('.overlay-subtitle');
+      if (!sub) { clearInterval(_statusTimer); return; }
+      const secs = (Date.now() - _startTs) / 1000;
+      for (const [t, msg] of STATUS_MSGS) {
+        if (Math.abs(secs - t) < 0.6) { sub.textContent = msg; break; }
+      }
+    }, 500);
+    overlay._statusTimer = _statusTimer;
   }
 
   function hideLoadingOverlay() {
     clearInterval(factInterval);
     factInterval = null;
+    const overlay = document.getElementById('analyze-overlay');
+    if (overlay?._statusTimer) clearInterval(overlay._statusTimer);
     document.body.style.overflow = '';
     const overlay = document.getElementById('analyze-overlay');
     if (!overlay) return;
@@ -360,7 +381,7 @@ const RecordPage = (function () {
     formData.append('audio', payload, filename);
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000);
+    const timer = setTimeout(() => controller.abort(), 90000);
 
     try {
       const response = await fetch(`${API_BASE}/classify`, {
@@ -400,7 +421,7 @@ const RecordPage = (function () {
     let apiResult = null;
     let apiError  = null;
 
-    const minWait = new Promise(resolve => setTimeout(resolve, 5000));
+    const minWait = new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
       apiResult = await classifyAudio();

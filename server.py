@@ -10,6 +10,7 @@ Model path (pick one):
 """
 
 import os
+import subprocess
 import tempfile
 
 import numpy as np
@@ -66,8 +67,25 @@ except Exception as exc:
 
 
 # ── Audio → model input ───────────────────────────────────────────────────────
+def _ffmpeg_decode(path: str) -> np.ndarray:
+    """Decode any audio format to 16 kHz mono float32 via ffmpeg.
+    Far faster than librosa's audioread path for compressed formats."""
+    cmd = [
+        'ffmpeg', '-y', '-i', path,
+        '-ac', '1',
+        '-ar', str(SAMPLE_RATE),
+        '-f', 'f32le',
+        '-loglevel', 'error',
+        'pipe:1',
+    ]
+    result = subprocess.run(cmd, capture_output=True, timeout=20)
+    if result.returncode != 0:
+        raise RuntimeError(f'ffmpeg decode failed: {result.stderr.decode()[:300]}')
+    return np.frombuffer(result.stdout, dtype=np.float32)
+
+
 def audio_to_model_input(path: str) -> np.ndarray:
-    audio, _ = librosa.load(path, sr=SAMPLE_RATE, duration=DURATION)
+    audio = _ffmpeg_decode(path)
 
     target_len = int(SAMPLE_RATE * DURATION)
     if len(audio) < target_len:

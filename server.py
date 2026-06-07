@@ -14,17 +14,25 @@ import tempfile
 
 import numpy as np
 import librosa
-from scipy.ndimage import zoom
 import onnxruntime as ort
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # ── Config ───────────────────────────────────────────────────────────────────
 MODEL_PATH    = os.environ.get('EFROG_MODEL_PATH', './frog_classifier.onnx')
-LABEL_CLASSES = ['cane_toad', 'oak_toad', 'southern_toad']
-SAMPLE_RATE   = 22050
+LABEL_CLASSES = [
+    'Barking Treefrog', 'Bullfrog', 'Carpenter Frog',
+    'Coastal Plains Leopard Frog', "Cope's Gray Treefrog", 'Cuban Tree Frog',
+    'Eastern Narrow-mouthed Toad', 'Eastern Spadefoot', 'Green Frog',
+    'Green Treefrog', 'Little Grass Frog', 'Oak Toad', 'Pig Frog',
+    'Pine Woods Treefrog', 'River Frog', 'Southern Cricket Frog',
+    'Southern Leopard Frog', 'Squirrel Treefrog',
+]
+SAMPLE_RATE   = 16000
 DURATION      = 5.0
-N_MELS        = 128
+N_MELS        = 64
+N_FFT         = 1024
+HOP_LENGTH    = 512
 
 app = Flask(__name__)
 CORS(app)
@@ -46,7 +54,8 @@ try:
           f'Provider: {session.get_providers()[0]}')
     # Run one dummy inference so ONNX compiles/optimises the graph now,
     # not on the first real request (which would cause a timeout).
-    _dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
+    # 5 s @ 16 kHz with center=True padding → 157 time frames
+    _dummy = np.zeros((1, 1, N_MELS, 157), dtype=np.float32)
     session.run(None, {input_name: _dummy})
     print('Warm-up done — first inference is ready.')
 except Exception as exc:
@@ -66,35 +75,17 @@ def audio_to_model_input(path: str) -> np.ndarray:
     else:
         audio = audio[:target_len]
 
+    # Power mel spectrogram (matches torchaudio.transforms.MelSpectrogram defaults)
     mel = librosa.feature.melspectrogram(
-        y=audio, sr=SAMPLE_RATE, n_mels=N_MELS, n_fft=2048, hop_length=512,
+        y=audio, sr=SAMPLE_RATE, n_mels=N_MELS, n_fft=N_FFT, hop_length=HOP_LENGTH,
+        power=2.0,
     )
+    # Convert to dB (matches torchaudio.transforms.AmplitudeToDB)
     mel_db = librosa.power_to_db(mel, ref=np.max)
-    # Replace any -inf from silent frames (doesn't affect typical frog audio)
     mel_db = np.nan_to_num(mel_db, nan=0.0, posinf=0.0, neginf=-80.0)
 
-    if mel_db.shape[1] != 216:
-        mel_db = zoom(mel_db, (1, 216 / mel_db.shape[1]), order=1)
-
-    # Normalize to [0, 255] — matches training pipeline exactly
-    lo, hi = mel_db.min(), mel_db.max()
-    mel_norm = (
-        ((mel_db - lo) / (hi - lo) * 255) if hi > lo
-        else np.zeros_like(mel_db)
-    ).astype(np.float32)
-
-    # Resize (128, 216) → (224, 224) with bilinear zoom, same as tf.image.resize
-    zy = 224 / mel_norm.shape[0]
-    zx = 224 / mel_norm.shape[1]
-    resized = zoom(mel_norm, (zy, zx), order=1)
-
-    # Stack grayscale → RGB
-    rgb = np.stack([resized, resized, resized], axis=-1)
-
-    # EfficientNet preprocess_input: scale to [-1, 1]
-    rgb = rgb / 127.5 - 1.0
-
-    return np.expand_dims(rgb, axis=0).astype(np.float32)
+    # Shape: (batch=1, channel=1, n_mels=64, time)
+    return mel_db[np.newaxis, np.newaxis, :, :].astype(np.float32)
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -124,15 +115,16 @@ def classify():
         tmp_path = tmp.name
 
     try:
-        x     = audio_to_model_input(tmp_path)
-        preds = session.run(None, {input_name: x})[0][0]
-        idx   = int(np.argmax(preds))
-        print({sp: f'{float(preds[i]):.3f}' for i, sp in enumerate(LABEL_CLASSES)})
+        x      = audio_to_model_input(tmp_path)
+        logits = session.run(None, {input_name: x})[0][0]  # raw sigmoid logits
+        probs  = 1.0 / (1.0 + np.exp(-logits.astype(np.float64)))  # sigmoid
+        idx    = int(np.argmax(probs))
+        print({sp: f'{float(probs[i]):.3f}' for i, sp in enumerate(LABEL_CLASSES)})
         return jsonify({
             'species':       LABEL_CLASSES[idx],
-            'confidence':    float(preds[idx]),
+            'confidence':    float(probs[idx]),
             'probabilities': {
-                sp: float(preds[i]) for i, sp in enumerate(LABEL_CLASSES)
+                sp: float(probs[i]) for i, sp in enumerate(LABEL_CLASSES)
             },
         })
     except Exception as exc:

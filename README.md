@@ -57,8 +57,17 @@ EFROG_MODEL_PATH=/path/to/your_model.onnx python3 server.py
 
 ### Classified species
 
-| Label | Common name |
-|---|---|
-| `cane_toad` | Cane Toad |
-| `oak_toad` | Oak Toad |
-| `southern_toad` | Southern Toad |
+The class list is embedded in `frog_classifier.onnx` by the
+[efrog-training](https://github.com/lmansf/efrog-training) notebook — the server reads it from the
+model's metadata at startup, so the served species always match the model. Check the live list at
+`GET /health` (the `classes` field).
+
+### Training a new model
+
+Run `EDA-Master.ipynb` in the efrog-training repo, then copy the exported model here:
+
+```bash
+cp ../efrog-training/artifacts/frog_classifier.onnx ./frog_classifier.onnx
+```
+
+No code changes are needed when the species list changes — labels travel inside the model file.

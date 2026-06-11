@@ -39,8 +39,15 @@ N_MELS        = 64
 N_FFT         = 1024
 HOP_LENGTH    = 512
 
+MAX_UPLOAD_MB = 25   # keep in sync with MAX_UPLOAD_MB in js/pages/record.js
+
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_MB * 1024 * 1024
 CORS(app)
+
+@app.errorhandler(413)
+def _too_large(_):
+    return jsonify({'error': f'File is too large — the limit is {MAX_UPLOAD_MB} MB'}), 413
 
 @app.after_request
 def _cors(response):
@@ -95,6 +102,7 @@ def _ffmpeg_decode(path: str) -> np.ndarray:
     Far faster than librosa's audioread path for compressed formats."""
     cmd = [
         'ffmpeg', '-y', '-i', path,
+        '-t', str(DURATION),   # only the first 5 s is classified — bounds decode time
         '-ac', '1',
         '-ar', str(SAMPLE_RATE),
         '-f', 'f32le',
@@ -110,10 +118,12 @@ def _ffmpeg_decode(path: str) -> np.ndarray:
 def audio_to_model_input(path: str) -> np.ndarray:
     try:
         audio = _ffmpeg_decode(path)
-    except (FileNotFoundError, RuntimeError):
+    except FileNotFoundError:
         # No ffmpeg on PATH (e.g. local dev) — librosa is slower but works
-        audio, _ = librosa.load(path, sr=SAMPLE_RATE, mono=True)
+        audio, _ = librosa.load(path, sr=SAMPLE_RATE, mono=True, duration=DURATION)
         audio = audio.astype(np.float32)
+    if len(audio) == 0:
+        raise ValueError('the file contains no audio samples')
 
     target_len = int(SAMPLE_RATE * DURATION)
     if len(audio) < target_len:
@@ -163,7 +173,12 @@ def classify():
         tmp_path = tmp.name
 
     try:
-        x      = audio_to_model_input(tmp_path)
+        try:
+            x = audio_to_model_input(tmp_path)
+        except Exception as exc:
+            # Bad input, not a server fault — undecodable, corrupt, or empty audio
+            reason = str(exc) or 'it does not appear to be a valid audio file'
+            return jsonify({'error': f'Could not read that audio file: {reason}'}), 400
         logits = session.run(None, {input_name: x})[0][0]  # raw sigmoid logits
         probs  = 1.0 / (1.0 + np.exp(-logits.astype(np.float64)))  # sigmoid
         idx    = int(np.argmax(probs))

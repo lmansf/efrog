@@ -2,6 +2,8 @@ const RecordPage = (function () {
   const _local   = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
   const API_BASE = _local ? 'http://localhost:5000' : EFROG_API_URL;
 
+  const MAX_UPLOAD_MB = 25;   // keep in sync with MAX_CONTENT_LENGTH in server.py
+
   // Module-level state
   let mediaRecorder   = null;
   let audioChunks     = [];
@@ -176,12 +178,29 @@ const RecordPage = (function () {
       e.preventDefault();
       zone.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('audio/')) handleFile(file);
+      if (file) handleFile(file);
     });
     input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0]); });
   }
 
+  function _isAudioFile(file) {
+    return file.type.startsWith('audio/') ||
+      /\.(mp3|wav|ogg|oga|m4a|flac|aac|webm|mp4|3gp|mpga)$/i.test(file.name || '');
+  }
+
   function handleFile(file) {
+    if (!_isAudioFile(file)) {
+      _showToast('That doesn’t look like an audio file — try MP3, WAV, M4A, OGG or FLAC.');
+      return;
+    }
+    if (file.size === 0) {
+      _showToast('That file is empty — try a different recording.');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      _showToast(`File is too large — the limit is ${MAX_UPLOAD_MB} MB.`);
+      return;
+    }
     audioBlob       = null;
     currentFile     = file;
     currentFileName = file.name;
@@ -259,9 +278,13 @@ const RecordPage = (function () {
   }
 
   // ── Audio preview ─────────────────────────────────────
+  let currentObjectUrl = null;
+
   function showAudioPreview(url, name) {
     const previewEl = document.getElementById('audio-preview');
     if (!previewEl) return;
+    if (currentObjectUrl && currentObjectUrl !== url) URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = url;
     const player = document.getElementById('audio-player');
     if (player) {
       player.src = url;
@@ -282,6 +305,7 @@ const RecordPage = (function () {
   function clearAudio() {
     const player = document.getElementById('audio-player');
     if (player) player.src = '';
+    if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
     ['audio-preview', 'result-panel', 'feedback-panel'].forEach(id =>
       document.getElementById(id)?.classList.add('hidden')
     );
@@ -420,7 +444,7 @@ const RecordPage = (function () {
     let apiResult = null;
     let apiError  = null;
 
-    const minWait = new Promise(resolve => setTimeout(resolve, 1500));
+    const minWait = new Promise(resolve => setTimeout(resolve, 600));
 
     try {
       apiResult = await classifyAudio();

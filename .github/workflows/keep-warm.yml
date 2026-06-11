@@ -1,0 +1,17 @@
+# Pings the API every 10 minutes so Render's free tier never spins it down —
+# without this, the first visit after ~15 idle minutes waits through a
+# ~1 minute cold start. Keeping one free service warm 24/7 (~744 h/month)
+# fits within Render's 750 free instance hours.
+name: keep-warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        run: curl -sS --max-time 90 --retry 2 --retry-delay 15 https://efrog.onrender.com/health

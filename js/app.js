@@ -55,21 +55,25 @@ document.addEventListener('DOMContentLoaded', () => {
       [15, 'Loading model — first visit takes a moment…'],
       [30, 'Still warming up, almost there…'],
     ];
-    // Show a skip button after 20 s so users are never permanently stuck
-    setTimeout(() => {
-      if (!document.getElementById('boot-screen')) return;
+    // Skip button so users are never permanently stuck — shown after 20 s,
+    // or immediately when the server reports an error
+    let skipShown = false;
+    function showSkip() {
+      if (skipShown || !document.getElementById('boot-screen')) return;
+      skipShown = true;
       const skipBtn = document.createElement('button');
       skipBtn.textContent = 'Continue anyway';
       skipBtn.className = 'boot-skip-btn';
       skipBtn.onclick = () => { minWait.then(dismiss); };
       screen.querySelector('.boot-corner').appendChild(skipBtn);
-    }, 20000);
+    }
+    setTimeout(showSkip, 20000);
 
     let attempts = 0;
     async function poll() {
       attempts++;
       if (_local) {
-        if (attempts === 8) subEl.textContent = 'Run: python server.py';
+        if (attempts === 8) { subEl.textContent = 'Run: python server.py'; showSkip(); }
       } else {
         for (const [n, msg] of REMOTE_MSGS) {
           if (attempts === n) { subEl.textContent = msg; break; }
@@ -86,6 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (data.status === 'loading') {
           subEl.textContent = 'Loading model — almost ready…';
+        }
+        if (data.status === 'error') {
+          subEl.textContent = 'The classifier failed to load on the server — check the server logs.';
+          showSkip();
         }
       } catch {}
       setTimeout(poll, 1500);

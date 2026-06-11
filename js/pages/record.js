@@ -139,6 +139,7 @@ const RecordPage = (function () {
     currentDuration = null;
     isRecording = false; recordSeconds = 0;
 
+    prewarm();
     setupUpload();
     document.getElementById('record-btn').addEventListener('click', () =>
       isRecording ? stopRecording() : startRecording()
@@ -163,16 +164,34 @@ const RecordPage = (function () {
     );
   }
 
+  // ── Server pre-warming ────────────────────────────────
+  // The API's free-tier host spins down when idle, and waking it (plus loading
+  // the model) can take ~a minute — long enough for a first classify to time
+  // out. Pinging /health at the first sign of intent (opening this page,
+  // touching the upload zone, starting a recording) wakes the server so it's
+  // hot by the time the user clicks Analyze.
+  let _lastPrewarm = 0;
+  function prewarm() {
+    if (!API_BASE) return;
+    const now = Date.now();
+    if (now - _lastPrewarm < 4 * 60 * 1000) return;   // server stays warm ~15 min
+    _lastPrewarm = now;
+    fetch(`${API_BASE}/health`).catch(() => {});
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) prewarm();
+  });
+
   // ── Upload ────────────────────────────────────────────
   function setupUpload() {
     const zone  = document.getElementById('upload-zone');
     const input = document.getElementById('file-input');
 
-    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('click', () => { prewarm(); input.click(); });
     zone.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); prewarm(); input.click(); }
     });
-    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragover',  e => { e.preventDefault(); prewarm(); zone.classList.add('drag-over'); });
     zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
     zone.addEventListener('drop', e => {
       e.preventDefault();
@@ -205,6 +224,7 @@ const RecordPage = (function () {
     currentFile     = file;
     currentFileName = file.name;
     currentDuration = null;
+    prewarm();
     showAudioPreview(URL.createObjectURL(file), file.name);
   }
 
@@ -222,6 +242,7 @@ const RecordPage = (function () {
 
   async function startRecording() {
     try {
+      prewarm();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
       recordingMimeType = _bestMimeType();
@@ -405,23 +426,38 @@ const RecordPage = (function () {
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 90000);
+    let sawWakingServer = false;
 
     try {
-      const response = await fetch(`${API_BASE}/classify`, {
-        method: 'POST',
-        body:   formData,
-        signal: controller.signal,
-      });
+      // 503 means the server is awake but the model is still loading (e.g. it
+      // just woke from idle) — retry within our 90 s budget instead of failing.
+      while (true) {
+        const response = await fetch(`${API_BASE}/classify`, {
+          method: 'POST',
+          body:   formData,
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || `Server error ${response.status}`);
+        if (response.status === 503) {
+          sawWakingServer = true;
+          const sub = document.querySelector('.overlay-subtitle');
+          if (sub) sub.textContent = 'Server is waking up — hang tight…';
+          await new Promise(resolve => setTimeout(resolve, 2500));
+          continue;
+        }
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Server error ${response.status}`);
+        }
+
+        return await response.json();
       }
-
-      return await response.json();
     } catch (err) {
       if (err.name === 'AbortError') {
-        throw new Error('Request timed out — classification is taking too long');
+        throw new Error(sawWakingServer
+          ? 'The server is still waking up — please try again in a moment'
+          : 'Request timed out — classification is taking too long');
       }
       if (err.name === 'TypeError') {
         throw new Error(_local

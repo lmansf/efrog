@@ -85,7 +85,18 @@ def _load_model():
             raise RuntimeError(
                 f'model has {out_dim} outputs but {len(labels)} labels configured')
 
-        _dummy = np.zeros((1, 1, N_MELS, 157), dtype=np.float32)
+        # Warm the full request pipeline, not just the model: librosa/scipy do
+        # one-time setup (filterbanks, FFT plans) on their first call, which
+        # would otherwise land on the first user's request.
+        _noise = (np.random.default_rng(0)
+                  .standard_normal(int(SAMPLE_RATE * DURATION))
+                  .astype(np.float32) * 0.01)
+        _mel = librosa.feature.melspectrogram(
+            y=_noise, sr=SAMPLE_RATE, n_mels=N_MELS, n_fft=N_FFT,
+            hop_length=HOP_LENGTH, power=2.0,
+        )
+        _mel_db = librosa.power_to_db(_mel, ref=np.max)
+        _dummy  = _mel_db[np.newaxis, np.newaxis, :, :].astype(np.float32)
         sess.run(None, {iname: _dummy})
         print('Warm-up done — first inference is ready.')
         session, input_name, LABEL_CLASSES, _model_state = sess, iname, labels, 'ok'

@@ -1195,6 +1195,65 @@ body {
   animation: fadeOut .3s var(--ease-out) forwards;
 }
 
+/* ── "See your Results!" floating arrow ──────────────────
+   Shown when the post-analysis scroll lands on the feedback form, so the
+   results (now above the fold) are one tap away. Pops in, pulses gently,
+   pops out when clicked. */
+.results-arrow {
+  position: fixed;
+  bottom: calc(var(--bottom-nav-h) + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 26px 12px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  z-index: 250;
+  animation: arrow-pop-in .5s var(--ease-spring) both;
+}
+
+.results-arrow:hover { background: var(--primary-hover); }
+
+.results-arrow svg {
+  width: 34px;
+  height: 34px;
+  animation: arrow-pulse 1.5s ease-in-out infinite;
+}
+
+.results-arrow-caption {
+  font-size: .9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@keyframes arrow-pop-in {
+  from { opacity: 0; transform: translateX(-50%) scale(.4); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+@keyframes arrow-pulse {
+  0%, 100% { transform: translateY(0)    scale(1); }
+  50%      { transform: translateY(-5px) scale(1.15); }
+}
+
+.results-arrow.results-arrow-exit {
+  /* gentle pop: brief swell, then shrink + fade */
+  animation: arrow-pop-out .35s ease-in forwards;
+}
+
+@keyframes arrow-pop-out {
+  0%   { opacity: 1; transform: translateX(-50%) scale(1); }
+  30%  { opacity: 1; transform: translateX(-50%) scale(1.15); }
+  100% { opacity: 0; transform: translateX(-50%) scale(.3); }
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25%       { transform: translateX(-6px); }

@@ -139,6 +139,7 @@ const RecordPage = (function () {
     currentDuration = null;
     isRecording = false; recordSeconds = 0;
 
+    removeResultsArrow();
     prewarm();
     setupUpload();
     document.getElementById('record-btn').addEventListener('click', () =>
@@ -182,6 +183,8 @@ const RecordPage = (function () {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) prewarm();
   });
+  // The arrow is attached to <body>, so clear it when the user leaves the page
+  window.addEventListener('hashchange', () => removeResultsArrow());
 
   // ── Upload ────────────────────────────────────────────
   function setupUpload() {
@@ -325,6 +328,7 @@ const RecordPage = (function () {
   }
 
   function clearAudio() {
+    removeResultsArrow();
     const player = document.getElementById('audio-player');
     if (player) player.src = '';
     if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
@@ -488,6 +492,7 @@ const RecordPage = (function () {
     const analyzeBtn = document.getElementById('analyze-btn');
     analyzeBtn.disabled = true;
 
+    removeResultsArrow();
     showLoadingOverlay();
 
     let apiResult = null;
@@ -610,6 +615,7 @@ const RecordPage = (function () {
         if (Store.getFeedbackMode()) {
           feedbackPanel.classList.remove('hidden');
           feedbackPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          showResultsArrow();
         }
       }
     }
@@ -642,6 +648,35 @@ const RecordPage = (function () {
 
     document.getElementById('feedback-panel')?.classList.add('hidden');
     _showToast('Feedback submitted — thank you!');
+  }
+
+  // ── "See your Results!" arrow ─────────────────────────
+  // Appears when the post-analysis scroll lands on the feedback form; one tap
+  // scrolls back up to the result panel, and the arrow pops away.
+  function showResultsArrow() {
+    removeResultsArrow();
+    const btn = document.createElement('button');
+    btn.id = 'results-arrow';
+    btn.className = 'results-arrow';
+    btn.setAttribute('aria-label', 'Scroll to your results');
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="18 15 12 9 6 15"/>
+      </svg>
+      <span class="results-arrow-caption">See your Results!</span>
+    `;
+    btn.addEventListener('click', () => {
+      document.getElementById('result-panel')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      btn.classList.add('results-arrow-exit');
+      btn.addEventListener('animationend', () => btn.remove(), { once: true });
+    }, { once: true });
+    document.body.appendChild(btn);
+  }
+
+  function removeResultsArrow() {
+    document.getElementById('results-arrow')?.remove();
   }
 
   // ── Helpers ───────────────────────────────────────────

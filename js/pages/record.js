@@ -2,6 +2,8 @@ const RecordPage = (function () {
   const _local   = location.protocol === 'file:' || ['localhost', '127.0.0.1'].includes(location.hostname);
   const API_BASE = _local ? 'http://localhost:5000' : EFROG_API_URL;
 
+  const MAX_UPLOAD_MB = 25;   // keep in sync with MAX_CONTENT_LENGTH in server.py
+
   // Module-level state
   let mediaRecorder   = null;
   let audioChunks     = [];
@@ -137,6 +139,7 @@ const RecordPage = (function () {
     currentDuration = null;
     isRecording = false; recordSeconds = 0;
 
+    prewarm();
     setupUpload();
     document.getElementById('record-btn').addEventListener('click', () =>
       isRecording ? stopRecording() : startRecording()
@@ -161,31 +164,68 @@ const RecordPage = (function () {
     );
   }
 
+  // ── Server pre-warming ────────────────────────────────
+  // The API's free-tier host spins down when idle, and waking it (plus loading
+  // the model) can take ~a minute — long enough for a first classify to time
+  // out. Pinging /health at the first sign of intent (opening this page,
+  // touching the upload zone, starting a recording) wakes the server so it's
+  // hot by the time the user clicks Analyze.
+  let _lastPrewarm = 0;
+  function prewarm() {
+    if (window.EFROG_LOCAL_INFERENCE) return;   // nothing to wake — model runs locally
+    if (!API_BASE) return;
+    const now = Date.now();
+    if (now - _lastPrewarm < 4 * 60 * 1000) return;   // server stays warm ~15 min
+    _lastPrewarm = now;
+    fetch(`${API_BASE}/health`).catch(() => {});
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) prewarm();
+  });
+
   // ── Upload ────────────────────────────────────────────
   function setupUpload() {
     const zone  = document.getElementById('upload-zone');
     const input = document.getElementById('file-input');
 
-    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('click', () => { prewarm(); input.click(); });
     zone.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); prewarm(); input.click(); }
     });
-    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragover',  e => { e.preventDefault(); prewarm(); zone.classList.add('drag-over'); });
     zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
     zone.addEventListener('drop', e => {
       e.preventDefault();
       zone.classList.remove('drag-over');
       const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('audio/')) handleFile(file);
+      if (file) handleFile(file);
     });
     input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0]); });
   }
 
+  function _isAudioFile(file) {
+    return file.type.startsWith('audio/') ||
+      /\.(mp3|wav|ogg|oga|m4a|flac|aac|webm|mp4|3gp|mpga)$/i.test(file.name || '');
+  }
+
   function handleFile(file) {
+    if (!_isAudioFile(file)) {
+      _showToast('That doesn’t look like an audio file — try MP3, WAV, M4A, OGG or FLAC.');
+      return;
+    }
+    if (file.size === 0) {
+      _showToast('That file is empty — try a different recording.');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      _showToast(`File is too large — the limit is ${MAX_UPLOAD_MB} MB.`);
+      return;
+    }
     audioBlob       = null;
     currentFile     = file;
     currentFileName = file.name;
     currentDuration = null;
+    prewarm();
     showAudioPreview(URL.createObjectURL(file), file.name);
   }
 
@@ -203,6 +243,7 @@ const RecordPage = (function () {
 
   async function startRecording() {
     try {
+      prewarm();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
       recordingMimeType = _bestMimeType();
@@ -259,9 +300,13 @@ const RecordPage = (function () {
   }
 
   // ── Audio preview ─────────────────────────────────────
+  let currentObjectUrl = null;
+
   function showAudioPreview(url, name) {
     const previewEl = document.getElementById('audio-preview');
     if (!previewEl) return;
+    if (currentObjectUrl && currentObjectUrl !== url) URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = url;
     const player = document.getElementById('audio-player');
     if (player) {
       player.src = url;
@@ -282,6 +327,7 @@ const RecordPage = (function () {
   function clearAudio() {
     const player = document.getElementById('audio-player');
     if (player) player.src = '';
+    if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
     ['audio-preview', 'result-panel', 'feedback-panel'].forEach(id =>
       document.getElementById(id)?.classList.add('hidden')
     );
@@ -369,10 +415,22 @@ const RecordPage = (function () {
     top.addEventListener('animationend', () => overlay.remove(), { once: true });
   }
 
-  // ── Classification API ────────────────────────────────
+  // ── Classification ────────────────────────────────────
   async function classifyAudio() {
     const payload = audioBlob || currentFile;
     if (!payload) throw new Error('No audio loaded');
+
+    // Local (in-browser) inference: no server, no timeout. Falls through to the
+    // server path only if EFROG_LOCAL_INFERENCE is off.
+    if (window.EFROG_LOCAL_INFERENCE && window.Classifier) {
+      if (window.Classifier.status() === 'error') {
+        throw new Error('The classifier model failed to load — check your connection and reload');
+      }
+      const sub = document.querySelector('.overlay-subtitle');
+      if (window.Classifier.status() !== 'ok' && sub) sub.textContent = 'Loading model…';
+      return await window.Classifier.classify(payload);
+    }
+
     if (!API_BASE) throw new Error('API not configured — set EFROG_API_URL in js/config.js');
 
     const formData = new FormData();
@@ -381,23 +439,38 @@ const RecordPage = (function () {
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 90000);
+    let sawWakingServer = false;
 
     try {
-      const response = await fetch(`${API_BASE}/classify`, {
-        method: 'POST',
-        body:   formData,
-        signal: controller.signal,
-      });
+      // 503 means the server is awake but the model is still loading (e.g. it
+      // just woke from idle) — retry within our 90 s budget instead of failing.
+      while (true) {
+        const response = await fetch(`${API_BASE}/classify`, {
+          method: 'POST',
+          body:   formData,
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || `Server error ${response.status}`);
+        if (response.status === 503) {
+          sawWakingServer = true;
+          const sub = document.querySelector('.overlay-subtitle');
+          if (sub) sub.textContent = 'Server is waking up — hang tight…';
+          await new Promise(resolve => setTimeout(resolve, 2500));
+          continue;
+        }
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Server error ${response.status}`);
+        }
+
+        return await response.json();
       }
-
-      return await response.json();
     } catch (err) {
       if (err.name === 'AbortError') {
-        throw new Error('Request timed out — classification is taking too long');
+        throw new Error(sawWakingServer
+          ? 'The server is still waking up — please try again in a moment'
+          : 'Request timed out — classification is taking too long');
       }
       if (err.name === 'TypeError') {
         throw new Error(_local
@@ -420,7 +493,7 @@ const RecordPage = (function () {
     let apiResult = null;
     let apiError  = null;
 
-    const minWait = new Promise(resolve => setTimeout(resolve, 1500));
+    const minWait = new Promise(resolve => setTimeout(resolve, 600));
 
     try {
       apiResult = await classifyAudio();

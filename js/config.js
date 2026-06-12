@@ -1,6 +1,21 @@
 // After deploying the Python API, paste its URL here (no trailing slash).
 const EFROG_API_URL = 'https://efrog.onrender.com';
 
+// Run the classifier entirely in the browser (onnxruntime-web) instead of
+// calling the Python API. This removes the server from the prediction path, so
+// there is no cold start and nothing to time out — the model is fetched once,
+// cached, and runs locally. The API URL above is still used for optional
+// sign-in/history sync; classification ignores it when this is true.
+const EFROG_LOCAL_INFERENCE = true;
+const EFROG_MODEL_URL  = './frog_classifier.onnx';   // static model file
+const EFROG_LABELS_URL = './labels.json';            // class list (order matters)
+
+// classifier.js is an ES module and can't see these classic-script consts, so
+// expose the ones it needs on window.
+window.EFROG_LOCAL_INFERENCE = EFROG_LOCAL_INFERENCE;
+window.EFROG_MODEL_URL       = EFROG_MODEL_URL;
+window.EFROG_LABELS_URL      = EFROG_LABELS_URL;
+
 // Auth0 — create a Single Page Application in your Auth0 dashboard.
 // Allowed Callback URLs : https://efrog-seven.vercel.app, http://localhost:*
 // Allowed Logout URLs   : https://efrog-seven.vercel.app, http://localhost:*

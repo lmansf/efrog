@@ -1,65 +1,76 @@
 // DuckDB-WASM — browser-local, in-memory session storage.
 // Anonymous: ephemeral (lost on close).
 // Signed-in: sync() pushes unsynced rows to Databricks via Flask, then pulls remote history.
-// window.DB is set synchronously; every method awaits _ready before using _conn.
+// window.DB is set synchronously; the multi-MB DuckDB-WASM bundle is only
+// downloaded on first use, never on the page-load critical path. A failed
+// init (e.g. offline) is retried on the next call.
 
-import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/+esm';
+let _conn        = null;
+let _initPromise = null;
 
-let _conn      = null;
-let _initError = null;
+function _init() {
+  if (!_initPromise) {
+    _initPromise = (async () => {
+      const duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm');
+      const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
 
-const _ready = (async () => {
-  const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+      const workerUrl = URL.createObjectURL(
+        new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+      );
+      const worker = new Worker(workerUrl);
+      URL.revokeObjectURL(workerUrl);
 
-  const workerUrl = URL.createObjectURL(
-    new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
-  );
-  const worker = new Worker(workerUrl);
-  URL.revokeObjectURL(workerUrl);
+      const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      _conn = await db.connect();
 
-  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
-  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-  _conn = await db.connect();
+      // created_at stored as ISO string — avoids Arrow BigInt serialization issues
+      await _conn.query(`
+        CREATE TABLE IF NOT EXISTS observations (
+          id            VARCHAR PRIMARY KEY,
+          created_at    VARCHAR,
+          type          VARCHAR,
+          name          VARCHAR,
+          duration      DOUBLE,
+          species       VARCHAR,
+          confidence    DOUBLE,
+          probabilities VARCHAR
+        )
+      `);
 
-  // created_at stored as ISO string — avoids Arrow BigInt serialization issues
-  await _conn.query(`
-    CREATE TABLE IF NOT EXISTS observations (
-      id            VARCHAR PRIMARY KEY,
-      created_at    VARCHAR,
-      type          VARCHAR,
-      name          VARCHAR,
-      duration      DOUBLE,
-      species       VARCHAR,
-      confidence    DOUBLE,
-      probabilities VARCHAR
-    )
-  `);
-
-  await _conn.query(`
-    CREATE TABLE IF NOT EXISTS feedback (
-      id              VARCHAR PRIMARY KEY,
-      observation_id  VARCHAR,
-      created_at      VARCHAR,
-      user_id         VARCHAR,
-      name            VARCHAR,
-      accuracy_rating INTEGER,
-      site_rating     INTEGER,
-      frogwatch       VARCHAR,
-      note            VARCHAR,
-      species         VARCHAR,
-      confidence      DOUBLE,
-      user_agent      VARCHAR,
-      synced          BOOLEAN DEFAULT false
-    )
-  `);
-})().catch(err => {
-  _initError = err;
-  console.warn('[DB] DuckDB-WASM failed to initialize:', err.message);
-});
+      await _conn.query(`
+        CREATE TABLE IF NOT EXISTS feedback (
+          id              VARCHAR PRIMARY KEY,
+          observation_id  VARCHAR,
+          created_at      VARCHAR,
+          user_id         VARCHAR,
+          name            VARCHAR,
+          accuracy_rating INTEGER,
+          site_rating     INTEGER,
+          frogwatch       VARCHAR,
+          note            VARCHAR,
+          species         VARCHAR,
+          confidence      DOUBLE,
+          user_agent      VARCHAR,
+          synced          BOOLEAN DEFAULT false
+        )
+      `);
+    })().catch(err => {
+      console.warn('[DB] DuckDB-WASM failed to initialize:', err.message);
+      _initPromise = null;   // allow a retry on the next call
+      throw err;
+    });
+  }
+  return _initPromise;
+}
 
 async function _guard() {
-  await _ready;
-  return !_initError;
+  try {
+    await _init();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────

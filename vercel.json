@@ -1,8 +1,10 @@
 {
   "version": 2,
   "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "styles.css", "use": "@vercel/static" },
-    { "src": "js/**",      "use": "@vercel/static" }
+    { "src": "index.html",           "use": "@vercel/static" },
+    { "src": "styles.css",           "use": "@vercel/static" },
+    { "src": "js/**",                "use": "@vercel/static" },
+    { "src": "labels.json",          "use": "@vercel/static" },
+    { "src": "frog_classifier.onnx", "use": "@vercel/static" }
   ]
 }

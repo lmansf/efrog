@@ -43,6 +43,27 @@ document.addEventListener('DOMContentLoaded', () => {
       }, { once: true });
     }
 
+    // Local inference: wait for the in-browser model to load (a one-time fetch),
+    // not a server. No /health polling, no cold start.
+    if (window.EFROG_LOCAL_INFERENCE) {
+      subEl.textContent = 'Loading model…';
+      // Skip button after 20 s so a slow model download never traps the user
+      setTimeout(() => {
+        if (!document.getElementById('boot-screen')) return;
+        const skipBtn = document.createElement('button');
+        skipBtn.textContent = 'Continue anyway';
+        skipBtn.className = 'boot-skip-btn';
+        skipBtn.onclick = () => { minWait.then(dismiss); };
+        screen.querySelector('.boot-corner').appendChild(skipBtn);
+      }, 20000);
+
+      Promise.resolve(window.Classifier?.ready)
+        .then(() => { subEl.textContent = 'Ready'; })
+        .catch(() => { subEl.textContent = 'Model failed to load — you can still browse'; })
+        .finally(() => minWait.then(dismiss));
+      return;
+    }
+
     // If no API is configured yet, skip health check and just boot
     if (!API_BASE) {
       minWait.then(dismiss);

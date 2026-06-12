@@ -31,10 +31,10 @@ const AboutPage = {
       <div class="about-section">
         <h2>Privacy</h2>
         <p>
-          Audio you analyze is sent to the efrog classification API to make the prediction and
-          is not stored there. Your history stays in your browser's local storage; if you sign
-          in, your results also sync to the project's research dataset. Clearing browser data
-          removes your local history.
+          Classification runs entirely in your browser — your audio never leaves your device to
+          be identified. Your history stays in your browser's local storage; only if you sign in
+          do your results sync to the project's research dataset. Clearing browser data removes
+          your local history.
         </p>
       </div>
 
@@ -42,10 +42,10 @@ const AboutPage = {
         <h2>ML model</h2>
         <p>
           Identification is done by a convolutional neural network trained on research-grade
-          frog recordings from iNaturalist. Your audio is converted to a mel spectrogram —
-          an image of which frequencies occur when — and the network scores how likely each
-          species' call is present. The species list lives inside the model itself, so it grows
-          as the model is retrained.
+          frog recordings from iNaturalist. The model is downloaded once and runs locally: your
+          audio is converted to a mel spectrogram — an image of which frequencies occur when —
+          and the network scores how likely each species' call is present. Because there's no
+          server in the loop, the first prediction is as fast as the next.
         </p>
       </div>
     `;

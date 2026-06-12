@@ -1,40 +1,31 @@
 # efrog
 
-Browser-based frog call classifier. Upload or record audio and the app identifies the species using a local ML model.
+Browser-based frog call classifier. Upload or record audio and the app identifies the species using a machine-learning model.
 
-## Requirements
+## How classification works
 
-- Python 3.9+
-- A modern browser (Chrome, Firefox, Edge)
-- `frog_classifier.onnx` — place it in the project root
+By default (`EFROG_LOCAL_INFERENCE = true` in `js/config.js`) the model runs **entirely in the browser** via [onnxruntime-web](https://onnxruntime.ai/docs/tutorials/web/). The app downloads `frog_classifier.onnx` once, decodes your audio with the Web Audio API, computes the mel spectrogram in JS (matched bit-for-bit to the Python preprocessing), and runs inference locally. There's no classification server to deploy, no cold start, and your audio never leaves your device.
 
-## Setup
+The class list comes from `labels.json` (kept in sync with the model by the training notebook).
+
+### Running the browser-only app
+
+Serve the project root with any static server so the model file can be fetched:
+
+```bash
+python3 -m http.server 8000   # then open http://localhost:8000
+```
+
+> `file://` won't work for local inference because browsers block `fetch` of the model over that protocol — use a static server (above) or deploy to Vercel.
+
+## Optional: Python API
+
+`server.py` provides the same classifier over HTTP, plus the Auth0 / Databricks endpoints used for sign-in and history sync. Set `EFROG_LOCAL_INFERENCE = false` to route classification through it instead.
 
 ```bash
 pip install -r requirements.txt
+python3 server.py   # wait for "Warm-up done — first inference is ready."
 ```
-
-> On Linux you may need `pip3` instead of `pip`.
-
-## Running
-
-**1. Start the API server**
-
-Windows:
-```cmd
-python server.py
-```
-
-Linux / macOS:
-```bash
-python3 server.py
-```
-
-Wait for `Warm-up done — first inference is ready.` before using the app.
-
-**2. Open the app**
-
-Open `index.html` directly in your browser (no web server needed — `file://` works).
 
 ---
 

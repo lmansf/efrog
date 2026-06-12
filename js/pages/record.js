@@ -172,6 +172,7 @@ const RecordPage = (function () {
   // hot by the time the user clicks Analyze.
   let _lastPrewarm = 0;
   function prewarm() {
+    if (window.EFROG_LOCAL_INFERENCE) return;   // nothing to wake — model runs locally
     if (!API_BASE) return;
     const now = Date.now();
     if (now - _lastPrewarm < 4 * 60 * 1000) return;   // server stays warm ~15 min
@@ -414,10 +415,22 @@ const RecordPage = (function () {
     top.addEventListener('animationend', () => overlay.remove(), { once: true });
   }
 
-  // ── Classification API ────────────────────────────────
+  // ── Classification ────────────────────────────────────
   async function classifyAudio() {
     const payload = audioBlob || currentFile;
     if (!payload) throw new Error('No audio loaded');
+
+    // Local (in-browser) inference: no server, no timeout. Falls through to the
+    // server path only if EFROG_LOCAL_INFERENCE is off.
+    if (window.EFROG_LOCAL_INFERENCE && window.Classifier) {
+      if (window.Classifier.status() === 'error') {
+        throw new Error('The classifier model failed to load — check your connection and reload');
+      }
+      const sub = document.querySelector('.overlay-subtitle');
+      if (window.Classifier.status() !== 'ok' && sub) sub.textContent = 'Loading model…';
+      return await window.Classifier.classify(payload);
+    }
+
     if (!API_BASE) throw new Error('API not configured — set EFROG_API_URL in js/config.js');
 
     const formData = new FormData();

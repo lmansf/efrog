@@ -139,7 +139,7 @@ const RecordPage = (function () {
     currentDuration = null;
     isRecording = false; recordSeconds = 0;
 
-    removeResultsArrow();
+    removeFeedbackArrow();
     prewarm();
     setupUpload();
     document.getElementById('record-btn').addEventListener('click', () =>
@@ -184,7 +184,7 @@ const RecordPage = (function () {
     if (!document.hidden) prewarm();
   });
   // The arrow is attached to <body>, so clear it when the user leaves the page
-  window.addEventListener('hashchange', () => removeResultsArrow());
+  window.addEventListener('hashchange', () => removeFeedbackArrow());
 
   // ── Upload ────────────────────────────────────────────
   function setupUpload() {
@@ -328,7 +328,7 @@ const RecordPage = (function () {
   }
 
   function clearAudio() {
-    removeResultsArrow();
+    removeFeedbackArrow();
     const player = document.getElementById('audio-player');
     if (player) player.src = '';
     if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
@@ -492,7 +492,7 @@ const RecordPage = (function () {
     const analyzeBtn = document.getElementById('analyze-btn');
     analyzeBtn.disabled = true;
 
-    removeResultsArrow();
+    removeFeedbackArrow();
     showLoadingOverlay();
 
     let apiResult = null;
@@ -601,6 +601,9 @@ const RecordPage = (function () {
     analyzeBtn.disabled    = false;
     analyzeBtn.textContent = 'Analyze again';
 
+    // Results front and center before anything else
+    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
     if (!apiError) {
       const feedbackPanel = document.getElementById('feedback-panel');
       if (feedbackPanel) {
@@ -613,9 +616,10 @@ const RecordPage = (function () {
         if (feedbackPanel.querySelector('#fb-note'))      feedbackPanel.querySelector('#fb-note').value = '';
         feedbackPanel.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
         if (Store.getFeedbackMode()) {
+          // Reveal the form below, but stay on the results — the arrow offers
+          // the way down instead of yanking the scroll position.
           feedbackPanel.classList.remove('hidden');
-          feedbackPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          showResultsArrow();
+          showFeedbackArrow();
         }
       }
     }
@@ -650,33 +654,33 @@ const RecordPage = (function () {
     _showToast('Feedback submitted — thank you!');
   }
 
-  // ── "See your Results!" arrow ─────────────────────────
-  // Appears when the post-analysis scroll lands on the feedback form; one tap
-  // scrolls back up to the result panel, and the arrow pops away.
-  function showResultsArrow() {
-    removeResultsArrow();
+  // ── "Go to Feedback" arrow ────────────────────────────
+  // After an analysis the page centers on the results; if feedback mode is on,
+  // this quiet pill points down to the feedback form and pops away when tapped.
+  function showFeedbackArrow() {
+    removeFeedbackArrow();
     const btn = document.createElement('button');
-    btn.id = 'results-arrow';
-    btn.className = 'results-arrow';
-    btn.setAttribute('aria-label', 'Scroll to your results');
+    btn.id = 'feedback-arrow';
+    btn.className = 'feedback-arrow';
+    btn.setAttribute('aria-label', 'Scroll to the feedback form');
     btn.innerHTML = `
+      <span class="feedback-arrow-caption">Go to Feedback</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="18 15 12 9 6 15"/>
+        <polyline points="6 9 12 15 18 9"/>
       </svg>
-      <span class="results-arrow-caption">See your Results!</span>
     `;
     btn.addEventListener('click', () => {
-      document.getElementById('result-panel')
+      document.getElementById('feedback-panel')
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      btn.classList.add('results-arrow-exit');
+      btn.classList.add('feedback-arrow-exit');
       btn.addEventListener('animationend', () => btn.remove(), { once: true });
     }, { once: true });
     document.body.appendChild(btn);
   }
 
-  function removeResultsArrow() {
-    document.getElementById('results-arrow')?.remove();
+  function removeFeedbackArrow() {
+    document.getElementById('feedback-arrow')?.remove();
   }
 
   // ── Helpers ───────────────────────────────────────────

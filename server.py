@@ -9,6 +9,7 @@ Model path (pick one):
   • Or place frog_classifier.onnx next to server.py (the default)
 """
 
+import json
 import os
 import subprocess
 import tempfile
@@ -22,6 +23,8 @@ from flask_cors import CORS
 
 # ── Config ───────────────────────────────────────────────────────────────────
 MODEL_PATH    = os.environ.get('EFROG_MODEL_PATH', './frog_classifier.onnx')
+# Fallback class list — only used when the model file carries no 'labels'
+# metadata (models exported by efrog-training embed their own label list).
 LABEL_CLASSES = [
     'Barking Treefrog', 'Bullfrog', 'Carpenter Frog',
     'Coastal Plains Leopard Frog', "Cope's Gray Treefrog", 'Cuban Tree Frog',
@@ -54,17 +57,31 @@ input_name   = None
 _model_state = 'loading'   # 'loading' | 'ok' | 'error'
 
 def _load_model():
-    global session, input_name, _model_state
+    global session, input_name, LABEL_CLASSES, _model_state
     print(f'Loading model from {MODEL_PATH!r} …')
     try:
         _providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
         sess       = ort.InferenceSession(MODEL_PATH, providers=_providers)
         iname      = sess.get_inputs()[0].name
         print(f'Model ready.  Input: {iname!r}  Provider: {sess.get_providers()[0]}')
+
+        # Class list travels with the model (efrog-training embeds it at export)
+        meta   = sess.get_modelmeta().custom_metadata_map
+        labels = LABEL_CLASSES
+        if 'labels' in meta:
+            labels = json.loads(meta['labels'])
+            print(f'Loaded {len(labels)} class labels from model metadata.')
+        else:
+            print('No label metadata in model — using built-in class list.')
+        out_dim = sess.get_outputs()[0].shape[-1]
+        if isinstance(out_dim, int) and out_dim != len(labels):
+            raise RuntimeError(
+                f'model has {out_dim} outputs but {len(labels)} labels configured')
+
         _dummy = np.zeros((1, 1, N_MELS, 157), dtype=np.float32)
         sess.run(None, {iname: _dummy})
         print('Warm-up done — first inference is ready.')
-        session, input_name, _model_state = sess, iname, 'ok'
+        session, input_name, LABEL_CLASSES, _model_state = sess, iname, labels, 'ok'
     except Exception as exc:
         print(f'ERROR: could not load model — {exc}')
         _model_state = 'error'
@@ -91,7 +108,12 @@ def _ffmpeg_decode(path: str) -> np.ndarray:
 
 
 def audio_to_model_input(path: str) -> np.ndarray:
-    audio = _ffmpeg_decode(path)
+    try:
+        audio = _ffmpeg_decode(path)
+    except (FileNotFoundError, RuntimeError):
+        # No ffmpeg on PATH (e.g. local dev) — librosa is slower but works
+        audio, _ = librosa.load(path, sr=SAMPLE_RATE, mono=True)
+        audio = audio.astype(np.float32)
 
     target_len = int(SAMPLE_RATE * DURATION)
     if len(audio) < target_len:

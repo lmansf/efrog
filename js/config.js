@@ -21,8 +21,8 @@ window.EFROG_LABELS_URL      = EFROG_LABELS_URL;
 // purpose), because what it can do is governed by Row-Level-Security policies in
 // Supabase. Get both from your project: Settings → API → "Project URL" and the
 // "anon" / public key. Until they're filled in, feedback submit shows an error.
-const SUPABASE_URL      = 'https://YOUR_PROJECT_REF.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_PUBLIC_KEY';
+const SUPABASE_URL      = 'https://dhnzjpgrcuwbptzjlkec.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3ZN4xcs9GDj6Hs980vUUOQ_xPeD2Oh5';
 
 // Exposed on window so ES-module scripts (db.js) can read them too.
 window.SUPABASE_URL      = SUPABASE_URL;

@@ -332,14 +332,15 @@ const RecordPage = (function () {
       </div>
       <span class="analyze-loader-text">loading</span>
     `;
-    document.body.appendChild(loader);
+    const resultPanel = document.getElementById('result-panel');
+    resultPanel.parentNode.insertBefore(loader, resultPanel);
   }
 
   function hideLoadingOverlay() {
     const loader = document.getElementById('analyze-overlay');
-    if (!loader) return;
+    if (!loader) return Promise.resolve();
     loader.classList.add('loader-exiting');
-    setTimeout(() => loader.remove(), 1100);
+    return new Promise(resolve => setTimeout(() => { loader.remove(); resolve(); }, 1100));
   }
 
   // ── Classification ────────────────────────────────────
@@ -429,7 +430,7 @@ const RecordPage = (function () {
     }
 
     await minWait;
-    hideLoadingOverlay();
+    await hideLoadingOverlay();
 
     if (!document.getElementById('result-panel')) return;
 

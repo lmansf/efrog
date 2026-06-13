@@ -30,24 +30,31 @@ const _ready = (async () => {
 
   await _renderNav();
 
-  // On authenticated page load: sync local DuckDB → Databricks
+  // On authenticated page load: sync local DuckDB → Supabase.
+  // DuckDB-WASM is lazy-loaded — poll until window.DB is ready before syncing.
   if (await _client.isAuthenticated()) {
-    try {
-      const [token, user] = await Promise.all([
-        _client.getTokenSilently(),
-        _client.getUser(),
-      ]);
-      const username = user?.name ?? user?.email ?? '';
-      const contactId = window.DB?.getContactId();
-      await window.DB?.upsertContact({
-        id:       contactId,
-        email:    user?.email ?? '',
-        username,
-      });
-      await window.DB?.sync(token, username);
-    } catch (e) {
-      console.warn('[Auth] post-login sync failed:', e.message);
-    }
+    (async () => {
+      const deadline = Date.now() + 15000;
+      while (!window.DB && Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      try {
+        const [token, user] = await Promise.all([
+          _client.getTokenSilently(),
+          _client.getUser(),
+        ]);
+        const username   = user?.name ?? user?.email ?? '';
+        const contactId  = window.DB?.getContactId();
+        await window.DB?.upsertContact({
+          id:       contactId,
+          email:    user?.email ?? '',
+          username,
+        });
+        await window.DB?.sync(token, username);
+      } catch (e) {
+        console.warn('[Auth] post-login sync failed:', e.message);
+      }
+    })();
   }
 })().catch(err => {
   _initError = err;

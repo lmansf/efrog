@@ -91,30 +91,25 @@ async function _guard() {
 
 function _sbReady() {
   const url = window.SUPABASE_URL, key = window.SUPABASE_ANON_KEY;
-  return Boolean(url && key && !url.includes('YOUR_PROJECT') && !key.includes('YOUR_'));
+  return Boolean(url && key && !url.includes('YOUR_PROJECT') && !key.includes('YOUR_') && window.supabase);
+}
+
+function _sbClient() {
+  return window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+    db: { schema: 'Version_1' },
+  });
 }
 
 async function _sbInsert(table, row, { merge = false } = {}) {
   if (!_sbReady()) {
     throw new Error('Supabase is not configured — set SUPABASE_URL and SUPABASE_ANON_KEY in js/config.js');
   }
-  const prefer = merge
-    ? 'resolution=merge-duplicates,return=minimal'
-    : 'return=minimal';
-  const res = await fetch(`${window.SUPABASE_URL}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: {
-      'apikey':        window.SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
-      'Content-Type':  'application/json',
-      'Prefer':        prefer,
-    },
-    body: JSON.stringify(row),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Supabase ${table} insert failed (${res.status}) ${detail.slice(0, 200)}`);
-  }
+  const client = _sbClient();
+  const query  = merge
+    ? client.from(table).upsert(row, { onConflict: 'id' })
+    : client.from(table).insert(row);
+  const { error } = await query;
+  if (error) throw new Error(`Supabase ${table} insert failed: ${error.message}`);
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -260,6 +255,10 @@ window.DB = {
   // so an email provided later attaches to an id seen earlier.
   async sendContact(row) {
     return _sbInsert('contacts', row, { merge: true });
+  },
+
+  async sendLoginEvent(row) {
+    return _sbInsert('user_logins', row);
   },
 
   getContactId() {

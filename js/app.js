@@ -93,4 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window._syncFeedbackToggle = syncToggle;
   syncToggle();
   Router.init();
+
+  window.DB?.getContactId();
 });

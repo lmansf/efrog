@@ -45,17 +45,31 @@ const _ready = (async () => {
         ]);
         const username   = user?.name ?? user?.email ?? '';
         const contactId  = window.DB?.getContactId();
+        const now        = new Date().toISOString();
         await window.DB?.upsertContact({
           id:       contactId,
           email:    user?.email ?? '',
           username,
         });
-        // Attach the signed-in email to their Supabase contact record
+        // Attach the signed-in identity to their Supabase contact record
         window.DB?.sendContact({
           id:         contactId,
           email:      user?.email ?? '',
           username,
-          updated_at: new Date().toISOString(),
+          user_id:    user?.sub ?? '',
+          updated_at: now,
+        }).catch(() => {});
+        // Log this login event
+        window.DB?.sendLoginEvent({
+          id:             crypto.randomUUID(),
+          contact_id:     contactId,
+          user_id:        user?.sub        ?? '',
+          email:          user?.email      ?? '',
+          username,
+          email_verified: user?.email_verified ?? false,
+          picture:        user?.picture    ?? '',
+          logged_in_at:   now,
+          user_agent:     navigator.userAgent,
         }).catch(() => {});
         await window.DB?.sync(token, username);
       } catch (e) {

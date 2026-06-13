@@ -14,15 +14,8 @@ services:
       - key: AUTH0_AUDIENCE
         value: "https://efrog.onrender.com"          # e.g. https://efrog.onrender.com
 
-      # Databricks
-      - key: DATABRICKS_HOST
-        value: "dbc-e930fe9b-24ee.cloud.databricks.com"          # e.g. adb-xxxx.azuredatabricks.net
-      - key: DATABRICKS_HTTP_PATH
-        value: "/sql/1.0/warehouses/3693794c981549b0"          # e.g. /sql/1.0/warehouses/xxxx
-      - key: DATABRICKS_TOKEN
-        sync: false        # secret — Render will prompt you to enter it in the dashboard
-      - key: DATABRICKS_CATALOG
-        value: ""          # leave empty to use hive_metastore
-      - key: DATABRICKS_SCHEMA
-        value: efrog
+      # Supabase
+      - key: SUPABASE_DB_URL
+        sync: false        # secret — set in Render dashboard
+                           # format: postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
     plan: free

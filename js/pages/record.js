@@ -107,6 +107,16 @@ const RecordPage = (function () {
           <textarea id="fb-note" class="feedback-note" placeholder="Tell us what you think…"></textarea>
         </div>
 
+        <div class="form-group">
+          <div class="feedback-public-row">
+            <label class="feedback-public-label">
+              <input type="checkbox" id="fb-make-public" class="feedback-public-check">
+              Make Public
+            </label>
+            <span class="feedback-public-caption">You're invited to make yourself eligible for feature on our website. As feedback is implemented, some will be selected to celebrate</span>
+          </div>
+        </div>
+
         <div class="feedback-row">
           <button id="submit-feedback" class="btn btn-secondary">Submit</button>
           <button id="skip-feedback" class="btn btn-ghost btn-sm">Skip</button>
@@ -540,6 +550,7 @@ const RecordPage = (function () {
         if (acc)  { acc.value  = 5; feedbackPanel.querySelector('#fb-accuracy-val').textContent = '5'; }
         if (site) { site.value = 5; feedbackPanel.querySelector('#fb-site-val').textContent = '5'; }
         if (feedbackPanel.querySelector('#fb-note'))      feedbackPanel.querySelector('#fb-note').value = '';
+        if (feedbackPanel.querySelector('#fb-make-public')) feedbackPanel.querySelector('#fb-make-public').checked = false;
         feedbackPanel.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
         if (Store.getFeedbackMode()) {
           feedbackPanel.classList.remove('hidden');
@@ -561,9 +572,13 @@ const RecordPage = (function () {
     let userId = null;
     try { userId = (await Auth?.getUser())?.sub ?? null; } catch {}
 
+    const contactId  = window.DB?.getContactId() ?? '';
+    const makePublic = document.getElementById('fb-make-public')?.checked ?? false;
+
     window.DB?.insertFeedback({
       observationId:  currentEntryId,
       userId,
+      contactId,
       name,
       accuracyRating,
       siteRating,
@@ -572,6 +587,7 @@ const RecordPage = (function () {
       species:    currentSpecies,
       confidence: currentConfidence,
       userAgent:  navigator.userAgent,
+      makePublic,
     }).catch(() => {});
 
     document.getElementById('feedback-panel')?.classList.add('hidden');

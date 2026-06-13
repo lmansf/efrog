@@ -38,6 +38,12 @@ const _ready = (async () => {
         _client.getUser(),
       ]);
       const username = user?.name ?? user?.email ?? '';
+      const contactId = window.DB?.getContactId();
+      await window.DB?.upsertContact({
+        id:       contactId,
+        email:    user?.email ?? '',
+        username,
+      });
       await window.DB?.sync(token, username);
     } catch (e) {
       console.warn('[Auth] post-login sync failed:', e.message);

@@ -44,6 +44,7 @@ function _init() {
           observation_id  VARCHAR,
           created_at      VARCHAR,
           user_id         VARCHAR,
+          contact_id      VARCHAR,
           name            VARCHAR,
           accuracy_rating INTEGER,
           site_rating     INTEGER,
@@ -52,7 +53,17 @@ function _init() {
           species         VARCHAR,
           confidence      DOUBLE,
           user_agent      VARCHAR,
+          make_public     BOOLEAN DEFAULT false,
           synced          BOOLEAN DEFAULT false
+        )
+      `);
+
+      await _conn.query(`
+        CREATE TABLE IF NOT EXISTS contacts (
+          id         VARCHAR PRIMARY KEY,
+          email      VARCHAR,
+          username   VARCHAR,
+          updated_at VARCHAR
         )
       `);
     })().catch(err => {
@@ -109,6 +120,8 @@ async function getUnsyncedFeedback() {
     species:        r.species,
     confidence:     r.confidence,
     user_agent:     r.user_agent,
+    contact_id:     r.contact_id,
+    make_public:    r.make_public,
   }));
 }
 
@@ -121,6 +134,51 @@ async function markFeedbackSynced(ids) {
   }
 }
 
+async function getAllContacts() {
+  if (!await _guard()) return [];
+  const tbl = await _conn.query('SELECT * FROM contacts');
+  return tbl.toArray().map(r => ({
+    id:         r.id,
+    email:      r.email,
+    username:   r.username,
+    updated_at: r.updated_at,
+  }));
+}
+
+async function upsertContact({ id, email, username }) {
+  if (!await _guard()) return;
+  const stmt = await _conn.prepare(
+    `INSERT INTO contacts (id, email, username, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET
+       email = excluded.email,
+       username = excluded.username,
+       updated_at = excluded.updated_at`
+  );
+  await stmt.query(
+    String(id),
+    email    ?? '',
+    username ?? '',
+    new Date().toISOString(),
+  );
+  await stmt.close();
+}
+
+// ── Contact ID ───────────────────────────────────────────────────────────────
+// A stable UUID generated on first visit and persisted in localStorage.
+// Anonymous users get one automatically; logged-in users have their email/
+// username attached to it via upsertContact on sign-in.
+
+function _getOrCreateContactId() {
+  const key = 'efrog_contact_id';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 window.DB = {
@@ -128,18 +186,19 @@ window.DB = {
     return insertObservation(data);
   },
 
-  async insertFeedback({ observationId, userId, name, accuracyRating, siteRating, frogwatch, note, species, confidence, userAgent }) {
+  async insertFeedback({ observationId, userId, contactId, name, accuracyRating, siteRating, frogwatch, note, species, confidence, userAgent, makePublic }) {
     if (!await _guard()) return;
     const stmt = await _conn.prepare(
       `INSERT INTO feedback
-         (id, observation_id, created_at, user_id, name, accuracy_rating, site_rating, frogwatch, note, species, confidence, user_agent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         (id, observation_id, created_at, user_id, contact_id, name, accuracy_rating, site_rating, frogwatch, note, species, confidence, user_agent, make_public)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     await stmt.query(
       crypto.randomUUID(),
       String(observationId ?? ''),
       new Date().toISOString(),
       userId     ?? '',
+      contactId  ?? '',
       name       ?? '',
       accuracyRating != null ? Number(accuracyRating) : null,
       siteRating     != null ? Number(siteRating)     : null,
@@ -148,9 +207,19 @@ window.DB = {
       species    ?? '',
       confidence != null ? Number(confidence) : null,
       userAgent  ?? '',
+      makePublic ?? false,
     );
     await stmt.close();
   },
+
+  async upsertContact(data) {
+    return upsertContact(data);
+  },
+
+  getContactId() {
+    return _getOrCreateContactId();
+  },
+
 
   async getObservations() {
     if (!await _guard()) return [];
@@ -191,9 +260,10 @@ window.DB = {
     if (!await _guard()) return;
     if (!EFROG_API_URL) return;
 
-    const [observations, feedbackRows] = await Promise.all([
+    const [observations, feedbackRows, contacts] = await Promise.all([
       this.getObservations(),
       getUnsyncedFeedback(),
+      getAllContacts(),
     ]);
 
     const stampedObservations = observations.map(o => ({ ...o, username }));
@@ -204,7 +274,7 @@ window.DB = {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ observations: stampedObservations, feedback: feedbackRows }),
+      body: JSON.stringify({ observations: stampedObservations, feedback: feedbackRows, contacts }),
     });
 
     if (!res.ok) {

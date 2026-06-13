@@ -16,25 +16,8 @@ const RecordPage = (function () {
   let isRecording     = false;
   let recordTimer     = null;
   let recordSeconds   = 0;
-  let factInterval    = null;
-  let factIndex       = 0;
   let currentSpecies    = null;
   let currentConfidence = null;
-
-  const FROG_FACTS = [
-    "There are over 7,000 known species of frogs worldwide.",
-    "Frogs absorb water through their skin — they never actually drink it.",
-    "The glass frog has a transparent belly, so you can see its beating heart.",
-    "Some frogs survive winter by freezing solid and thawing out in spring.",
-    "A group of frogs is called an army.",
-    "The golden poison dart frog holds enough toxin to kill 10 adult humans.",
-    "Frogs were among the first land animals to evolve vocal cords.",
-    "The Goliath frog of Cameroon can weigh over 3 kg — as heavy as a small cat.",
-    "Most frogs can jump up to 20 times their own body length.",
-    "Tree frogs have sticky toe pads that can support their full body weight.",
-    "The mimic poison frog carries its tadpoles on its back to individual pools.",
-    "Some desert frogs can stay dormant underground for up to 7 years waiting for rain.",
-  ];
 
   // ── Render ────────────────────────────────────────────
   function render() {
@@ -335,84 +318,28 @@ const RecordPage = (function () {
     currentDuration = null;
   }
 
-  // ── Loading Overlay ───────────────────────────────────
+  // ── Loading Indicator ─────────────────────────────────
   function showLoadingOverlay() {
-    factIndex = Math.floor(Math.random() * FROG_FACTS.length);
-
-    const overlay = document.createElement('div');
-    overlay.id        = 'analyze-overlay';
-    overlay.className = 'analyze-overlay';
-    overlay.innerHTML = `
-      <div class="overlay-curtain overlay-curtain-top"></div>
-      <div class="overlay-curtain overlay-curtain-bottom"></div>
-      <div class="overlay-content">
-        <div class="overlay-frog-wrap">
-          <div class="overlay-ring"></div>
-          <div class="overlay-frog">🐸</div>
-        </div>
-        <h2 class="overlay-title">Identifying species…</h2>
-        <p class="overlay-subtitle">Listening for frog calls</p>
-        <div class="overlay-fact-card">
-          <p class="overlay-fact-label">Did you know?</p>
-          <p class="overlay-fact-text" id="overlay-fact-text">${FROG_FACTS[factIndex]}</p>
-        </div>
+    const loader = document.createElement('div');
+    loader.id        = 'analyze-overlay';
+    loader.className = 'analyze-loader';
+    loader.innerHTML = `
+      <div class="analyze-loader-scene">
+        <div class="analyze-loader-pad"></div>
+        <div class="analyze-loader-frog">🐸</div>
+        <div class="analyze-loader-ripple"></div>
+        <div class="analyze-loader-ripple analyze-loader-ripple-2"></div>
       </div>
+      <span class="analyze-loader-text">loading</span>
     `;
-    document.body.appendChild(overlay);
-    document.body.style.overflow = 'hidden';
-
-    requestAnimationFrame(() => {
-      overlay.querySelector('.overlay-curtain-top').classList.add('curtain-opening');
-      overlay.querySelector('.overlay-curtain-bottom').classList.add('curtain-opening');
-    });
-
-    factInterval = setInterval(() => {
-      const el = document.getElementById('overlay-fact-text');
-      if (!el) return;
-      el.classList.add('fact-fade');
-      setTimeout(() => {
-        factIndex = (factIndex + 1) % FROG_FACTS.length;
-        el.textContent = FROG_FACTS[factIndex];
-        el.classList.remove('fact-fade');
-      }, 300);
-    }, 4000);
-
-    // Progressive status messages based on elapsed time
-    const STATUS_MSGS = [
-      [3,  'Decoding audio…'],
-      [8,  'Computing mel spectrogram…'],
-      [15, 'Running neural network…'],
-      [25, 'Almost there…'],
-      [40, 'Still working — large file or slow connection…'],
-    ];
-    const _startTs = Date.now();
-    const _statusTimer = setInterval(() => {
-      const sub = document.querySelector('.overlay-subtitle');
-      if (!sub) { clearInterval(_statusTimer); return; }
-      const secs = (Date.now() - _startTs) / 1000;
-      for (const [t, msg] of STATUS_MSGS) {
-        if (Math.abs(secs - t) < 0.6) { sub.textContent = msg; break; }
-      }
-    }, 500);
-    overlay._statusTimer = _statusTimer;
+    document.body.appendChild(loader);
   }
 
   function hideLoadingOverlay() {
-    clearInterval(factInterval);
-    factInterval = null;
-    const overlay = document.getElementById('analyze-overlay');
-    if (overlay?._statusTimer) clearInterval(overlay._statusTimer);
-    document.body.style.overflow = '';
-    if (!overlay) return;
-
-    const top = overlay.querySelector('.overlay-curtain-top');
-    const bot = overlay.querySelector('.overlay-curtain-bottom');
-    top.classList.remove('curtain-opening');
-    bot.classList.remove('curtain-opening');
-    top.classList.add('curtain-closing');
-    bot.classList.add('curtain-closing');
-
-    top.addEventListener('animationend', () => overlay.remove(), { once: true });
+    const loader = document.getElementById('analyze-overlay');
+    if (!loader) return;
+    loader.classList.add('loader-exiting');
+    setTimeout(() => loader.remove(), 1100);
   }
 
   // ── Classification ────────────────────────────────────

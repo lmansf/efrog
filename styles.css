@@ -737,141 +737,153 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Analyze Loading Overlay ─────────────────────────────── */
-.analyze-overlay {
+/* ── Analyze Loader (frog hopping on lily pad) ─────────────── */
+.analyze-loader {
   position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: rgba(245,242,235,.97);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  overflow: hidden;
-}
-
-/* Curtain halves — black eyelids that part on open and close on exit */
-.overlay-curtain {
-  position: absolute;
-  left: 0;
-  right: 0;
-  background: #0e1410;    /* very dark warm-green black */
-  z-index: 2;
-  pointer-events: none;
-}
-
-.overlay-curtain-top    { top: 0; bottom: 50%; }
-.overlay-curtain-bottom { top: 50%; bottom: 0; }
-
-.overlay-curtain-top.curtain-opening {
-  animation: curtain-top-open 2s ease-in-out forwards;
-}
-.overlay-curtain-bottom.curtain-opening {
-  animation: curtain-bottom-open 2s ease-in-out forwards;
-}
-.overlay-curtain-top.curtain-closing {
-  animation: curtain-top-close 2s ease-in-out forwards;
-}
-.overlay-curtain-bottom.curtain-closing {
-  animation: curtain-bottom-close 2s ease-in-out forwards;
-}
-
-@keyframes curtain-top-open    { from { transform: translateY(0); }     to { transform: translateY(-100%); } }
-@keyframes curtain-bottom-open { from { transform: translateY(0); }     to { transform: translateY(100%);  } }
-@keyframes curtain-top-close   { from { transform: translateY(-100%); } to { transform: translateY(0); }    }
-@keyframes curtain-bottom-close{ from { transform: translateY(100%);  } to { transform: translateY(0); }    }
-
-.overlay-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  max-width: 320px;
-  width: 100%;
-  position: relative;
-  z-index: 1;
-}
-
-.overlay-frog-wrap {
-  position: relative;
-  width: 100px;
-  height: 100px;
-  margin-bottom: 24px;
-}
-
-.overlay-ring {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 3px solid var(--border);
-  border-top-color: var(--primary);
-  border-right-color: var(--primary-dim);
-  animation: spin 1.8s linear infinite;
-}
-
-.overlay-frog {
-  font-size: 3.6rem;
-  position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  animation: frog-bob 2.4s ease-in-out infinite;
-  user-select: none;
-  line-height: 1;
-}
-
-@keyframes frog-bob {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50%       { transform: translate(-50%, calc(-50% - 5px)) scale(1.06); }
-}
-
-.overlay-title {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: -.3px;
-  margin-bottom: 6px;
-}
-
-.overlay-subtitle {
-  font-size: .85rem;
-  color: var(--text-muted);
-  margin-bottom: 28px;
-}
-
-.overlay-fact-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  width: 100%;
-  box-shadow: var(--shadow-md);
-  min-height: 108px;
+  z-index: 200;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 14px;
+  pointer-events: none;
+  animation: loader-appear .3s var(--ease-out) both;
 }
 
-.overlay-fact-label {
-  font-size: .7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .09em;
-  color: var(--primary);
+@keyframes loader-appear {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.88); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1);   }
 }
 
-.overlay-fact-text {
-  font-size: .9rem;
-  color: var(--text);
-  line-height: 1.55;
-  transition: opacity .3s ease;
+.analyze-loader-scene {
+  position: relative;
+  width: 84px;
+  height: 64px;
 }
 
-.overlay-fact-text.fact-fade { opacity: 0; }
+/* Lily pad — CSS oval with a notch */
+.analyze-loader-pad {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 58px;
+  height: 20px;
+  background: radial-gradient(ellipse at 38% 38%, #5d9944, #3b6b28);
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(0,0,0,.18);
+  animation: pad-sway 3.2s ease-in-out infinite;
+}
+
+/* Notch cut-out */
+.analyze-loader-pad::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: 12px;
+  width: 15px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+
+@keyframes pad-sway {
+  0%, 100% { transform: translateX(-50%) translateY(0);    }
+  50%       { transform: translateX(-50%) translateY(2px); }
+}
+
+/* Frog hopping */
+.analyze-loader-frog {
+  position: absolute;
+  font-size: 1.65rem;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: frog-hop 1.1s ease-in-out infinite;
+  user-select: none;
+  line-height: 1;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,.14));
+}
+
+@keyframes frog-hop {
+  0%   { transform: translateX(-50%) translateY(0)     scaleX(1.1)  scaleY(.88); }
+  22%  { transform: translateX(-50%) translateY(-18px) scaleX(.88)  scaleY(1.12); }
+  48%  { transform: translateX(-50%) translateY(-22px) scaleX(.9)   scaleY(1.1);  }
+  72%  { transform: translateX(-50%) translateY(-4px)  scaleX(.96)  scaleY(1.04); }
+  90%  { transform: translateX(-50%) translateY(1px)   scaleX(1.12) scaleY(.85); }
+  100% { transform: translateX(-50%) translateY(0)     scaleX(1.1)  scaleY(.88); }
+}
+
+/* Water ripple rings (hidden during idle, animated on exit) */
+.analyze-loader-ripple {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%) scale(.5);
+  width: 58px;
+  height: 20px;
+  border: 2px solid var(--primary-dim);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.analyze-loader-ripple-2 {
+  width: 84px;
+  height: 28px;
+}
+
+/* "loading" label */
+.analyze-loader-text {
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: .14em;
+  opacity: .75;
+}
+
+/* ── Exit: frog jumps into water ── */
+.analyze-loader.loader-exiting .analyze-loader-frog {
+  animation: frog-jump-into-water .65s cubic-bezier(.4, 0, 1, 1) forwards;
+}
+
+.analyze-loader.loader-exiting .analyze-loader-pad {
+  animation: pad-bob-after-jump .85s ease-out .28s both;
+}
+
+.analyze-loader.loader-exiting .analyze-loader-text {
+  animation: none;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.analyze-loader.loader-exiting .analyze-loader-ripple {
+  animation: water-ring-out .75s ease-out .38s forwards;
+}
+
+.analyze-loader.loader-exiting .analyze-loader-ripple-2 {
+  animation: water-ring-out 1s ease-out .52s forwards;
+}
+
+@keyframes frog-jump-into-water {
+  0%   { transform: translateX(-50%) translateY(0)      rotate(0deg)   scale(1);    opacity: 1; }
+  30%  { transform: translateX(-50%) translateY(-30px)  rotate(-12deg) scale(.9);   opacity: 1; }
+  100% { transform: translateX(-50%) translateY(26px)   rotate(28deg)  scale(.65);  opacity: 0; }
+}
+
+@keyframes pad-bob-after-jump {
+  0%   { transform: translateX(-50%) scaleX(1)    scaleY(1);   }
+  28%  { transform: translateX(-50%) scaleX(1.28) scaleY(.72); }
+  58%  { transform: translateX(-50%) scaleX(.88)  scaleY(1.1); }
+  100% { transform: translateX(-50%) scaleX(1)    scaleY(1);   opacity: .35; }
+}
+
+@keyframes water-ring-out {
+  0%   { opacity: .75; transform: translateX(-50%) scale(.5); }
+  100% { opacity: 0;   transform: translateX(-50%) scale(3);  }
+}
 
 /* Feedback overlay form */
 .overlay-form {

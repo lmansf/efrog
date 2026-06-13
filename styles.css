@@ -1034,89 +1034,54 @@ body {
 }
 
 .boot-screen.boot-exit {
-  animation: bootExit 1s var(--ease-smooth) forwards;
+  animation: bootExit .7s var(--ease-smooth) forwards;
   pointer-events: none;
 }
 
 @keyframes bootExit {
-  to { opacity: 0; transform: translateY(-6px); }
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
 }
 
-/* ── Slides ── */
-.boot-slides {
+/* ── Welcome card ── */
+.welcome-card {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -55%);
-  width: min(480px, 88vw);
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
-}
-
-.boot-slides-track {
-  display: grid;
-  width: 100%;
-}
-
-.boot-slide {
-  grid-area: 1 / 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
+  gap: 14px;
   text-align: center;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity .55s ease, transform .55s ease;
-  pointer-events: none;
+  animation: welcomeIn .6s var(--ease-spring) forwards;
 }
 
-.boot-slide.boot-slide-active {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+@keyframes welcomeIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
 }
 
-.boot-slide-icon {
-  font-size: 3rem;
+.welcome-icon {
+  font-size: 4rem;
   line-height: 1;
-  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, .5));
+  filter: drop-shadow(0 6px 24px rgba(0, 0, 0, .45));
 }
 
-.boot-slide-title {
+.welcome-title {
   margin: 0;
-  font-size: 1.45rem;
-  font-weight: 700;
+  font-size: 2.4rem;
+  font-weight: 800;
   color: #fff;
-  letter-spacing: -.01em;
+  letter-spacing: -.03em;
 }
 
-.boot-slide-body {
+.welcome-tagline {
   margin: 0;
-  font-size: .95rem;
-  color: rgba(255, 255, 255, .58);
-  line-height: 1.65;
-  max-width: 380px;
-}
-
-.boot-slide-dots {
-  display: flex;
-  gap: 10px;
-}
-
-.boot-slide-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .2);
-  transition: background .4s ease, transform .4s ease;
-}
-
-.boot-slide-dot.boot-slide-dot-active {
-  background: #6fbf73;
-  transform: scale(1.5);
+  font-size: 1rem;
+  color: rgba(255, 255, 255, .55);
+  line-height: 1.5;
+  max-width: 280px;
 }
 
 /* ── Fly orbit (replaces spinner rings) ── */

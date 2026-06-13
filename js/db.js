@@ -97,7 +97,9 @@ function _sbReady() {
 let _sbClientInstance = null;
 function _sbClient() {
   if (!_sbClientInstance) {
-    _sbClientInstance = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    _sbClientInstance = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+      db: { schema: 'Version_1' },
+    });
   }
   return _sbClientInstance;
 }

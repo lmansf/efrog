@@ -26,12 +26,13 @@ MODEL_PATH    = os.environ.get('EFROG_MODEL_PATH', './frog_classifier.onnx')
 # Fallback class list — only used when the model file carries no 'labels'
 # metadata (models exported by efrog-training embed their own label list).
 LABEL_CLASSES = [
-    'Barking Treefrog', 'Bullfrog', 'Carpenter Frog',
-    'Coastal Plains Leopard Frog', "Cope's Gray Treefrog", 'Cuban Tree Frog',
+    'American Bullfrog', 'Barking Tree Frog', 'Cane Toad',
+    'Coastal Plains Leopard Frog', 'Cuban Tree Frog',
     'Eastern Narrow-mouthed Toad', 'Eastern Spadefoot', 'Green Frog',
-    'Green Treefrog', 'Little Grass Frog', 'Oak Toad', 'Pig Frog',
-    'Pine Woods Treefrog', 'River Frog', 'Southern Cricket Frog',
-    'Southern Leopard Frog', 'Squirrel Treefrog',
+    'Green Treefrog', 'Greenhouse Frog', 'Little Grass Frog', 'Oak Toad',
+    'Pig Frog', 'Pine Woods Tree Frog', 'Southern Chorus Frog',
+    'Southern Cricket Frog', 'Southern Leopard Frog', 'Southern Toad',
+    'Squirrel Tree Frog',
 ]
 SAMPLE_RATE   = 16000
 DURATION      = 5.0
@@ -53,7 +54,7 @@ def _too_large(_):
 def _cors(response):
     response.headers['Access-Control-Allow-Origin']  = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     return response
 
 # ── Load model in background thread ──────────────────────────────────────────

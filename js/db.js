@@ -94,10 +94,12 @@ function _sbReady() {
   return Boolean(url && key && !url.includes('YOUR_PROJECT') && !key.includes('YOUR_') && window.supabase);
 }
 
+let _sbClientInstance = null;
 function _sbClient() {
-  return window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
-    db: { schema: 'Version_1' },
-  });
+  if (!_sbClientInstance) {
+    _sbClientInstance = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  }
+  return _sbClientInstance;
 }
 
 async function _sbInsert(table, row, { merge = false } = {}) {

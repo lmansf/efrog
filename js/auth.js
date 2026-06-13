@@ -50,6 +50,13 @@ const _ready = (async () => {
           email:    user?.email ?? '',
           username,
         });
+        // Attach the signed-in email to their Supabase contact record
+        window.DB?.sendContact({
+          id:         contactId,
+          email:      user?.email ?? '',
+          username,
+          updated_at: new Date().toISOString(),
+        }).catch(() => {});
         await window.DB?.sync(token, username);
       } catch (e) {
         console.warn('[Auth] post-login sync failed:', e.message);

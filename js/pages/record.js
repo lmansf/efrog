@@ -108,6 +108,11 @@ const RecordPage = (function () {
         </div>
 
         <div class="form-group">
+          <label class="form-label" for="fb-email">Email <span class="form-optional">(optional — only if you'd like us to follow up or feature you)</span></label>
+          <input type="email" id="fb-email" class="form-input" placeholder="you@example.com" autocomplete="email">
+        </div>
+
+        <div class="form-group">
           <div class="feedback-public-row">
             <label class="feedback-public-label">
               <input type="checkbox" id="fb-make-public" class="feedback-public-check">
@@ -550,6 +555,7 @@ const RecordPage = (function () {
         if (acc)  { acc.value  = 5; feedbackPanel.querySelector('#fb-accuracy-val').textContent = '5'; }
         if (site) { site.value = 5; feedbackPanel.querySelector('#fb-site-val').textContent = '5'; }
         if (feedbackPanel.querySelector('#fb-note'))      feedbackPanel.querySelector('#fb-note').value = '';
+        if (feedbackPanel.querySelector('#fb-email'))     feedbackPanel.querySelector('#fb-email').value = '';
         if (feedbackPanel.querySelector('#fb-make-public')) feedbackPanel.querySelector('#fb-make-public').checked = false;
         feedbackPanel.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
         if (Store.getFeedbackMode()) {
@@ -562,7 +568,9 @@ const RecordPage = (function () {
 
   // ── Feedback ──────────────────────────────────────────
   async function submitFeedback() {
+    const submitBtn      = document.getElementById('submit-feedback');
     const name           = (document.getElementById('fb-name')?.value || '').trim();
+    const email          = (document.getElementById('fb-email')?.value || '').trim();
     const accuracyRating = parseInt(document.getElementById('fb-accuracy')?.value ?? '5', 10);
     const siteRating     = parseInt(document.getElementById('fb-site')?.value ?? '5', 10);
     const frogwatchEl    = document.querySelector('.frogwatch-opt.selected');
@@ -575,23 +583,50 @@ const RecordPage = (function () {
     const contactId  = window.DB?.getContactId() ?? '';
     const makePublic = document.getElementById('fb-make-public')?.checked ?? false;
 
+    // Local copy for this device's history (best-effort)
     window.DB?.insertFeedback({
-      observationId:  currentEntryId,
-      userId,
-      contactId,
-      name,
-      accuracyRating,
-      siteRating,
-      frogwatch,
-      note,
-      species:    currentSpecies,
-      confidence: currentConfidence,
-      userAgent:  navigator.userAgent,
-      makePublic,
+      observationId: currentEntryId, userId, contactId, name,
+      accuracyRating, siteRating, frogwatch, note,
+      species: currentSpecies, confidence: currentConfidence,
+      userAgent: navigator.userAgent, makePublic,
     }).catch(() => {});
 
-    document.getElementById('feedback-panel')?.classList.add('hidden');
-    _showToast('Feedback submitted — thank you!');
+    // The actual collection: write straight to Supabase (works anonymously)
+    const row = {
+      id:              crypto.randomUUID(),
+      observation_id:  String(currentEntryId ?? ''),
+      created_at:      new Date().toISOString(),
+      user_id:         userId ?? '',
+      contact_id:      contactId,
+      name,
+      email,
+      accuracy_rating: accuracyRating,
+      site_rating:     siteRating,
+      frogwatch,
+      note,
+      species:         currentSpecies ?? '',
+      confidence:      currentConfidence,
+      user_agent:      navigator.userAgent,
+      make_public:     makePublic,
+    };
+
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+    try {
+      await window.DB.sendFeedback(row);
+      // If they left an email, attach it to their contact record too
+      if (email) {
+        window.DB.sendContact({
+          id: contactId, email, username: name, updated_at: row.created_at,
+        }).catch(() => {});
+      }
+      document.getElementById('feedback-panel')?.classList.add('hidden');
+      _showToast('Feedback submitted — thank you!');
+    } catch (err) {
+      console.error('[feedback] submit failed:', err);
+      _showToast('Could not submit feedback — please try again.');
+    } finally {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────

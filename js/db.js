@@ -84,6 +84,39 @@ async function _guard() {
   }
 }
 
+// ── Direct Supabase writes ──────────────────────────────────────────────────
+// Feedback and contacts go straight from the browser to Supabase's REST API
+// (PostgREST), guarded by Row-Level-Security insert policies — no server, so it
+// works for anonymous visitors and even when the Render box is asleep.
+
+function _sbReady() {
+  const url = window.SUPABASE_URL, key = window.SUPABASE_ANON_KEY;
+  return Boolean(url && key && !url.includes('YOUR_PROJECT') && !key.includes('YOUR_'));
+}
+
+async function _sbInsert(table, row, { merge = false } = {}) {
+  if (!_sbReady()) {
+    throw new Error('Supabase is not configured — set SUPABASE_URL and SUPABASE_ANON_KEY in js/config.js');
+  }
+  const prefer = merge
+    ? 'resolution=merge-duplicates,return=minimal'
+    : 'return=minimal';
+  const res = await fetch(`${window.SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'apikey':        window.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+      'Content-Type':  'application/json',
+      'Prefer':        prefer,
+    },
+    body: JSON.stringify(row),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Supabase ${table} insert failed (${res.status}) ${detail.slice(0, 200)}`);
+  }
+}
+
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 async function insertObservation({ id, created_at, type, name, duration, species, confidence, probabilities }) {
@@ -217,14 +250,25 @@ window.DB = {
     return upsertContact(data);
   },
 
+  // Send one feedback row straight to Supabase. Throws on failure so the caller
+  // can tell the user; the local copy (insertFeedback) is kept for history.
+  async sendFeedback(row) {
+    return _sbInsert('feedback', row);
+  },
+
+  // Upsert a contact (keyed by the stable contact id) into Supabase. merge=true
+  // so an email provided later attaches to an id seen earlier.
+  async sendContact(row) {
+    return _sbInsert('contacts', row, { merge: true });
+  },
+
   getContactId() {
     const { id, isNew } = _getOrCreateContactId();
-    if (isNew && typeof EFROG_API_URL !== 'undefined' && EFROG_API_URL) {
-      fetch(`${EFROG_API_URL}/contact`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      }).catch(() => {});
+    if (isNew && _sbReady()) {
+      // Best-effort: register the anonymous visitor; email is filled in later
+      // when they provide one (feedback form or sign-in).
+      _sbInsert('contacts', { id, updated_at: new Date().toISOString() }, { merge: true })
+        .catch(() => {});
     }
     return id;
   },
@@ -263,18 +307,15 @@ window.DB = {
     }));
   },
 
-  // Push unsynced local rows to Databricks, then pull remote history back.
-  // Called automatically on sign-in by auth.js.
+  // Optional, signed-in only: sync this device's observation HISTORY through the
+  // Flask API for cross-device continuity. Feedback and contacts no longer go
+  // through here — they're written straight to Supabase (see sendFeedback /
+  // sendContact), so they're collected from everyone without a server.
   async sync(token, username = '') {
     if (!await _guard()) return;
     if (!EFROG_API_URL) return;
 
-    const [observations, feedbackRows, contacts] = await Promise.all([
-      this.getObservations(),
-      getUnsyncedFeedback(),
-      getAllContacts(),
-    ]);
-
+    const observations        = await this.getObservations();
     const stampedObservations = observations.map(o => ({ ...o, username }));
 
     const res = await fetch(`${EFROG_API_URL}/sync`, {
@@ -283,16 +324,12 @@ window.DB = {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ observations: stampedObservations, feedback: feedbackRows, contacts }),
+      body: JSON.stringify({ observations: stampedObservations }),
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error ?? `Sync failed ${res.status}`);
-    }
-
-    if (feedbackRows.length) {
-      await markFeedbackSynced(feedbackRows.map(f => f.id));
     }
 
     // Populate local DB with remote history (ON CONFLICT DO NOTHING keeps local data)

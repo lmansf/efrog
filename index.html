@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Record or upload frog calls and get an instant AI-powered species identification.">
   <title>efrog</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐸</text></svg>">
+  <link rel="preconnect" href="https://efrog.onrender.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.auth0.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -14,7 +19,7 @@
         <div class="boot-slide boot-slide-active">
           <div class="boot-slide-icon">🐸</div>
           <h2 class="boot-slide-title">Meet efrog</h2>
-          <p class="boot-slide-body">Record or upload frog calls and get an instant AI-powered species identification. Currently covers cane toad, oak toad, and southern toad — with more on the way.</p>
+          <p class="boot-slide-body">Record or upload frog calls and get an instant AI-powered species identification of Florida frogs and toads — from bullfrogs to spadefoots.</p>
         </div>
 
         <div class="boot-slide">
@@ -100,16 +105,20 @@
     </a>
   </nav>
 
-  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.18/auth0-spa-js.production.js"></script>
+  <!-- All scripts deferred so HTML parsing (and the boot screen) is never blocked
+       on a network fetch. Deferred and module scripts run in document order, so
+       config.js globals are defined before auth.js/db.js execute. -->
+  <script defer src="js/config.js"></script>
+  <script defer src="https://cdn.auth0.com/js/auth0-spa-js/2.18/auth0-spa-js.production.js"></script>
+  <script type="module" src="js/classifier.js"></script>
   <script type="module" src="js/auth.js"></script>
   <script type="module" src="js/db.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/pages/about.js"></script>
-  <script src="js/pages/record.js"></script>
-  <script src="js/pages/history.js"></script>
-  <script src="js/router.js"></script>
-  <script src="js/app.js"></script>
+  <script defer src="js/store.js"></script>
+  <script defer src="js/pages/about.js"></script>
+  <script defer src="js/pages/record.js"></script>
+  <script defer src="js/pages/history.js"></script>
+  <script defer src="js/router.js"></script>
+  <script defer src="js/app.js"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>

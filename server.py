@@ -251,7 +251,8 @@ def _require_auth():
 import contextlib
 import psycopg2
 
-_SB_DB_URL = os.environ.get('SUPABASE_DB_URL', '')
+_SB_DB_URL    = os.environ.get('SUPABASE_DB_URL', '')
+_SB_SCHEMA    = 'Version_1'
 
 @contextlib.contextmanager
 def _supabase_conn():
@@ -264,48 +265,6 @@ def _supabase_conn():
         raise
     finally:
         conn.close()
-
-def _ensure_tables(cur):
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS observations (
-            id            TEXT PRIMARY KEY,
-            user_id       TEXT,
-            username      TEXT,
-            created_at    TEXT,
-            type          TEXT,
-            name          TEXT,
-            duration      DOUBLE PRECISION,
-            species       TEXT,
-            confidence    DOUBLE PRECISION,
-            probabilities TEXT
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS feedback (
-            id              TEXT PRIMARY KEY,
-            user_id         TEXT,
-            contact_id      TEXT,
-            observation_id  TEXT,
-            created_at      TEXT,
-            name            TEXT,
-            accuracy_rating INTEGER,
-            site_rating     INTEGER,
-            frogwatch       TEXT,
-            note            TEXT,
-            species         TEXT,
-            confidence      DOUBLE PRECISION,
-            user_agent      TEXT,
-            make_public     BOOLEAN DEFAULT false
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS contacts (
-            id         TEXT PRIMARY KEY,
-            email      TEXT,
-            username   TEXT,
-            updated_at TEXT
-        )
-    """)
 
 def _supabase_ready():
     return all([_SB_DB_URL, _AUTH0_DOMAIN])
@@ -332,10 +291,9 @@ def sync_data():
     try:
         with _supabase_conn() as conn:
             with conn.cursor() as cur:
-                _ensure_tables(cur)
                 for obs in observations:
-                    cur.execute("""
-                        INSERT INTO observations
+                    cur.execute(f"""
+                        INSERT INTO \"{_SB_SCHEMA}\".observations
                           (id, user_id, username, created_at, type, name, duration, species, confidence, probabilities)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO NOTHING
@@ -350,8 +308,8 @@ def sync_data():
                         _json.dumps(obs.get('probabilities') or {}),
                     ])
                 for fb in feedback:
-                    cur.execute("""
-                        INSERT INTO feedback
+                    cur.execute(f"""
+                        INSERT INTO \"{_SB_SCHEMA}\".feedback
                           (id, user_id, contact_id, observation_id, created_at, name,
                            accuracy_rating, site_rating, frogwatch, note,
                            species, confidence, user_agent, make_public)
@@ -371,8 +329,8 @@ def sync_data():
                         bool(fb.get('make_public', False)),
                     ])
                 for c in contacts:
-                    cur.execute("""
-                        INSERT INTO contacts (id, email, username, updated_at)
+                    cur.execute(f"""
+                        INSERT INTO \"{_SB_SCHEMA}\".contacts (id, email, username, updated_at)
                         VALUES (%s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                           email = EXCLUDED.email,
@@ -406,9 +364,9 @@ def get_observations():
     try:
         with _supabase_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(f"""
                     SELECT id, created_at, type, name, duration, species, confidence, probabilities
-                    FROM observations
+                    FROM \"{_SB_SCHEMA}\".observations
                     WHERE user_id = %s
                     ORDER BY created_at DESC
                 """, [user_id])
@@ -425,6 +383,34 @@ def get_observations():
         return jsonify({'error': str(exc)}), 500
 
     return jsonify({'observations': rows})
+
+
+# ── /contact ──────────────────────────────────────────────────────────────────
+@app.route('/contact', methods=['POST', 'OPTIONS'])
+def upsert_anonymous_contact():
+    if request.method == 'OPTIONS':
+        return '', 204
+    if not _SB_DB_URL:
+        return jsonify({'ok': True})
+
+    data       = request.get_json(force=True) or {}
+    contact_id = (data.get('id') or '').strip()
+    if not contact_id:
+        return jsonify({'error': 'id required'}), 400
+
+    try:
+        with _supabase_conn() as conn:
+            with conn.cursor() as cur:
+                from datetime import datetime as _dt
+                cur.execute(f"""
+                    INSERT INTO \"{_SB_SCHEMA}\".contacts (id, email, username, updated_at)
+                    VALUES (%s, '', '', %s)
+                    ON CONFLICT (id) DO NOTHING
+                """, [contact_id, _dt.utcnow().isoformat()])
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({'ok': True})
 
 
 if __name__ == '__main__':

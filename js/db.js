@@ -172,11 +172,12 @@ async function upsertContact({ id, email, username }) {
 function _getOrCreateContactId() {
   const key = 'efrog_contact_id';
   let id = localStorage.getItem(key);
+  const isNew = !id;
   if (!id) {
     id = crypto.randomUUID();
     localStorage.setItem(key, id);
   }
-  return id;
+  return { id, isNew };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -217,7 +218,15 @@ window.DB = {
   },
 
   getContactId() {
-    return _getOrCreateContactId();
+    const { id, isNew } = _getOrCreateContactId();
+    if (isNew && typeof EFROG_API_URL !== 'undefined' && EFROG_API_URL) {
+      fetch(`${EFROG_API_URL}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      }).catch(() => {});
+    }
+    return id;
   },
 
 

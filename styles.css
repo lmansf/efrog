@@ -1084,62 +1084,12 @@ body {
   max-width: 280px;
 }
 
-/* ── Fly orbit (replaces spinner rings) ── */
-.boot-fly-ring {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-}
-
-.boot-fly {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  font-size: 1rem;
-  margin: -.5em -.5em;
-  animation: flyOrbit 2s linear infinite;
-}
-
-/* rotate → translate → counter-rotate keeps the emoji upright while orbiting */
-@keyframes flyOrbit {
-  from { transform: rotate(0deg)   translateX(22px) rotate(0deg);   }
-  to   { transform: rotate(360deg) translateX(22px) rotate(-360deg); }
-}
-
-/* ── Corner label ── */
-.boot-corner {
+/* ── Skip button (shown if server takes too long) ── */
+.boot-skip-btn {
   position: absolute;
   bottom: 44px;
-  right: 52px;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
-.boot-label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.boot-label-main {
-  font-size: .75rem;
-  font-weight: 700;
-  letter-spacing: .18em;
-  color: rgba(255, 255, 255, .85);
-  text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
-}
-
-.boot-label-sub {
-  font-size: .65rem;
-  letter-spacing: .06em;
-  color: rgba(255, 255, 255, .35);
-}
-
-.boot-skip-btn {
-  margin-top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   background: none;
   border: 1px solid rgba(255, 255, 255, .25);
   color: rgba(255, 255, 255, .5);

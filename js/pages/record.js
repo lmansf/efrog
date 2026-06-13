@@ -67,6 +67,7 @@ const RecordPage = (function () {
 
       <div id="feedback-panel" class="panel panel-feedback hidden">
         <h2 class="panel-title">Give Feedback</h2>
+        <p class="panel-caption">This section is still in development, but you can scream into the void if you want to</p>
 
         <div class="form-group">
           <label class="form-label" for="fb-name">Name <span class="form-optional">(optional)</span></label>

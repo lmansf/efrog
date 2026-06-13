@@ -524,6 +524,11 @@ const RecordPage = (function () {
     analyzeBtn.disabled    = false;
     analyzeBtn.textContent = 'Analyze again';
 
+    // Scroll result panel into view after a brief paint delay
+    requestAnimationFrame(() => {
+      resultPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
     if (!apiError) {
       const feedbackPanel = document.getElementById('feedback-panel');
       if (feedbackPanel) {

@@ -4,8 +4,9 @@ const AboutPage = {
       <h1 class="page-title">About</h1>
 
       <p class="about-lead">
-        efrog is a sound analysis tool — upload or record audio and run it through a
-        machine learning classification model.
+        efrog is a frog call classifier — record or upload audio and a convolutional
+        neural network identifies which of 19 Floridian frog and toad species it hears.
+        The model runs directly in your browser, so there's no server, no upload, and no wait.
       </p>
 
       <div class="about-section">

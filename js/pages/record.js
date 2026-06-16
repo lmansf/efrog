@@ -42,8 +42,8 @@ const RecordPage = (function () {
       <h1 class="page-title">Analyze Sound</h1>
 
       <div class="input-row">
-        <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Upload audio file">
-          <input type="file" id="file-input" accept="audio/*" hidden>
+        <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Upload audio or video file">
+          <input type="file" id="file-input" accept="audio/*,video/quicktime,video/mp4,.mov,.mp4" hidden>
           <div class="upload-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -53,7 +53,7 @@ const RecordPage = (function () {
           </div>
           <p class="upload-primary">Drop audio file here</p>
           <p class="upload-secondary">or <span class="link">browse files</span></p>
-          <p class="upload-hint">MP3, WAV, OGG, M4A, FLAC</p>
+          <p class="upload-hint">MP3, WAV, OGG, M4A, FLAC, MOV, MP4</p>
         </div>
 
         <div class="input-divider"><span>or</span></div>
@@ -72,6 +72,7 @@ const RecordPage = (function () {
         </div>
         <p id="audio-filename" class="audio-filename"></p>
         <audio id="audio-player" controls class="audio-player"></audio>
+        <video id="video-player" controls class="audio-player hidden" style="width:100%;max-height:220px;border-radius:8px;"></video>
         <div class="panel-actions">
           <button id="analyze-btn" class="btn btn-primary">Analyze</button>
         </div>
@@ -208,12 +209,13 @@ const RecordPage = (function () {
 
   function _isAudioFile(file) {
     return file.type.startsWith('audio/') ||
-      /\.(mp3|wav|ogg|oga|m4a|flac|aac|webm|mp4|3gp|mpga)$/i.test(file.name || '');
+      file.type.startsWith('video/') ||
+      /\.(mp3|wav|ogg|oga|m4a|flac|aac|webm|mp4|mov|3gp|mpga)$/i.test(file.name || '');
   }
 
   function handleFile(file) {
     if (!_isAudioFile(file)) {
-      _showToast('That doesn’t look like an audio file — try MP3, WAV, M4A, OGG or FLAC.');
+      _showToast(‘That doesn’t look like an audio or video file — try MP3, WAV, M4A, OGG, FLAC or MOV.’);
       return;
     }
     if (file.size === 0) {
@@ -305,20 +307,35 @@ const RecordPage = (function () {
   // ── Audio preview ─────────────────────────────────────
   let currentObjectUrl = null;
 
+  function _isVideoFile(file) {
+    return !!(file && (file.type.startsWith('video/') ||
+      /\.(mov|mp4|3gp|webm)$/i.test(file.name || '')));
+  }
+
   function showAudioPreview(url, name) {
     const previewEl = document.getElementById('audio-preview');
     if (!previewEl) return;
     if (currentObjectUrl && currentObjectUrl !== url) URL.revokeObjectURL(currentObjectUrl);
     currentObjectUrl = url;
-    const player = document.getElementById('audio-player');
-    if (player) {
-      player.src = url;
-      player.addEventListener('loadedmetadata', () => {
-        if (currentDuration === null && !isNaN(player.duration)) {
-          currentDuration = player.duration;
+
+    const useVideo = _isVideoFile(currentFile || audioBlob);
+    const audioEl = document.getElementById('audio-player');
+    const videoEl = document.getElementById('video-player');
+
+    const activePlayer = useVideo ? videoEl : audioEl;
+    const inactivePlayer = useVideo ? audioEl : videoEl;
+
+    if (inactivePlayer) { inactivePlayer.src = ''; inactivePlayer.classList.add('hidden'); }
+    if (activePlayer) {
+      activePlayer.src = url;
+      activePlayer.classList.remove('hidden');
+      activePlayer.addEventListener('loadedmetadata', () => {
+        if (currentDuration === null && !isNaN(activePlayer.duration)) {
+          currentDuration = activePlayer.duration;
         }
       }, { once: true });
     }
+
     const fnEl = document.getElementById('audio-filename');
     if (fnEl) fnEl.textContent = name;
     previewEl.classList.remove('hidden');
@@ -331,6 +348,8 @@ const RecordPage = (function () {
     removeFeedbackArrow();
     const player = document.getElementById('audio-player');
     if (player) player.src = '';
+    const videoPlayer = document.getElementById('video-player');
+    if (videoPlayer) { videoPlayer.src = ''; videoPlayer.classList.add('hidden'); }
     if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
     ['audio-preview', 'result-panel', 'feedback-panel'].forEach(id =>
       document.getElementById(id)?.classList.add('hidden')

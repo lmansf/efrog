@@ -1134,6 +1134,71 @@ body {
   animation: fadeOut .3s var(--ease-out) forwards;
 }
 
+/* Post-analysis scroll target — keep clear of the sticky header */
+#result-panel { scroll-margin-top: calc(var(--header-h) + 12px); }
+
+/* ── "Go to Feedback" floating arrow ─────────────────────
+   After an analysis the page centers on the results; if feedback mode is on,
+   this quiet pill points down to the feedback form. Pops in, pulses gently,
+   pops out when clicked. */
+.feedback-arrow {
+  position: fixed;
+  bottom: calc(var(--bottom-nav-h) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 8px 18px 6px;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  z-index: 250;
+  animation: arrow-pop-in .45s var(--ease-spring) both;
+}
+
+.feedback-arrow:hover {
+  color: var(--text);
+  border-color: var(--primary-dim);
+}
+
+.feedback-arrow svg {
+  width: 20px;
+  height: 20px;
+  animation: arrow-pulse 1.8s ease-in-out infinite;
+}
+
+.feedback-arrow-caption {
+  font-size: .8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@keyframes arrow-pop-in {
+  from { opacity: 0; transform: translateX(-50%) scale(.6); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+@keyframes arrow-pulse {
+  0%, 100% { transform: translateY(0)   scale(1); }
+  50%      { transform: translateY(3px) scale(1.06); }
+}
+
+.feedback-arrow.feedback-arrow-exit {
+  /* gentle pop: brief swell, then shrink + fade */
+  animation: arrow-pop-out .3s ease-in forwards;
+}
+
+@keyframes arrow-pop-out {
+  0%   { opacity: 1; transform: translateX(-50%) scale(1); }
+  30%  { opacity: 1; transform: translateX(-50%) scale(1.08); }
+  100% { opacity: 0; transform: translateX(-50%) scale(.5); }
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25%       { transform: translateX(-6px); }

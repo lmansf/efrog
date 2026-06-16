@@ -25,8 +25,8 @@ const RecordPage = (function () {
       <h1 class="page-title">Analyze Sound</h1>
 
       <div class="input-row">
-        <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Upload audio file">
-          <input type="file" id="file-input" accept="audio/*" hidden>
+        <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Upload audio or video file">
+          <input type="file" id="file-input" accept="audio/*,video/quicktime,video/mp4,.mov,.mp4" hidden>
           <div class="upload-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -36,7 +36,7 @@ const RecordPage = (function () {
           </div>
           <p class="upload-primary">Drop audio file here</p>
           <p class="upload-secondary">or <span class="link">browse files</span></p>
-          <p class="upload-hint">MP3, WAV, OGG, M4A, FLAC</p>
+          <p class="upload-hint">MP3, WAV, OGG, M4A, FLAC, MOV, MP4</p>
         </div>
 
         <div class="input-divider"><span>or</span></div>
@@ -55,6 +55,7 @@ const RecordPage = (function () {
         </div>
         <p id="audio-filename" class="audio-filename"></p>
         <audio id="audio-player" controls class="audio-player"></audio>
+        <video id="video-player" controls class="audio-player hidden" style="width:100%;max-height:220px;border-radius:8px;"></video>
         <div class="panel-actions">
           <button id="analyze-btn" class="btn btn-primary">Analyze</button>
         </div>
@@ -138,6 +139,7 @@ const RecordPage = (function () {
     currentDuration = null;
     isRecording = false; recordSeconds = 0;
 
+    removeFeedbackArrow();
     prewarm();
     setupUpload();
     document.getElementById('record-btn').addEventListener('click', () =>
@@ -181,6 +183,8 @@ const RecordPage = (function () {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) prewarm();
   });
+  // The arrow is attached to <body>, so clear it when the user leaves the page
+  window.addEventListener('hashchange', () => removeFeedbackArrow());
 
   // ── Upload ────────────────────────────────────────────
   function setupUpload() {
@@ -204,12 +208,13 @@ const RecordPage = (function () {
 
   function _isAudioFile(file) {
     return file.type.startsWith('audio/') ||
-      /\.(mp3|wav|ogg|oga|m4a|flac|aac|webm|mp4|3gp|mpga)$/i.test(file.name || '');
+      file.type.startsWith('video/') ||
+      /\.(mp3|wav|ogg|oga|m4a|flac|aac|webm|mp4|mov|3gp|mpga)$/i.test(file.name || '');
   }
 
   function handleFile(file) {
     if (!_isAudioFile(file)) {
-      _showToast('That doesn’t look like an audio file — try MP3, WAV, M4A, OGG or FLAC.');
+      _showToast(‘That doesn’t look like an audio or video file — try MP3, WAV, M4A, OGG, FLAC or MOV.’);
       return;
     }
     if (file.size === 0) {
@@ -301,20 +306,35 @@ const RecordPage = (function () {
   // ── Audio preview ─────────────────────────────────────
   let currentObjectUrl = null;
 
+  function _isVideoFile(file) {
+    return !!(file && (file.type.startsWith('video/') ||
+      /\.(mov|mp4|3gp|webm)$/i.test(file.name || '')));
+  }
+
   function showAudioPreview(url, name) {
     const previewEl = document.getElementById('audio-preview');
     if (!previewEl) return;
     if (currentObjectUrl && currentObjectUrl !== url) URL.revokeObjectURL(currentObjectUrl);
     currentObjectUrl = url;
-    const player = document.getElementById('audio-player');
-    if (player) {
-      player.src = url;
-      player.addEventListener('loadedmetadata', () => {
-        if (currentDuration === null && !isNaN(player.duration)) {
-          currentDuration = player.duration;
+
+    const useVideo = _isVideoFile(currentFile || audioBlob);
+    const audioEl = document.getElementById('audio-player');
+    const videoEl = document.getElementById('video-player');
+
+    const activePlayer = useVideo ? videoEl : audioEl;
+    const inactivePlayer = useVideo ? audioEl : videoEl;
+
+    if (inactivePlayer) { inactivePlayer.src = ''; inactivePlayer.classList.add('hidden'); }
+    if (activePlayer) {
+      activePlayer.src = url;
+      activePlayer.classList.remove('hidden');
+      activePlayer.addEventListener('loadedmetadata', () => {
+        if (currentDuration === null && !isNaN(activePlayer.duration)) {
+          currentDuration = activePlayer.duration;
         }
       }, { once: true });
     }
+
     const fnEl = document.getElementById('audio-filename');
     if (fnEl) fnEl.textContent = name;
     previewEl.classList.remove('hidden');
@@ -324,8 +344,11 @@ const RecordPage = (function () {
   }
 
   function clearAudio() {
+    removeFeedbackArrow();
     const player = document.getElementById('audio-player');
     if (player) player.src = '';
+    const videoPlayer = document.getElementById('video-player');
+    if (videoPlayer) { videoPlayer.src = ''; videoPlayer.classList.add('hidden'); }
     if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
     ['audio-preview', 'result-panel', 'feedback-panel'].forEach(id =>
       document.getElementById(id)?.classList.add('hidden')
@@ -432,6 +455,7 @@ const RecordPage = (function () {
     const analyzeBtn = document.getElementById('analyze-btn');
     analyzeBtn.disabled = true;
 
+    removeFeedbackArrow();
     showLoadingOverlay();
 
     let apiResult = null;
@@ -540,10 +564,8 @@ const RecordPage = (function () {
     analyzeBtn.disabled    = false;
     analyzeBtn.textContent = 'Analyze again';
 
-    // Scroll result panel into view after a brief paint delay
-    requestAnimationFrame(() => {
-      resultPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    // Results front and center before anything else
+    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     if (!apiError) {
       const feedbackPanel = document.getElementById('feedback-panel');
@@ -559,8 +581,10 @@ const RecordPage = (function () {
         if (feedbackPanel.querySelector('#fb-make-public')) feedbackPanel.querySelector('#fb-make-public').checked = false;
         feedbackPanel.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
         if (Store.getFeedbackMode()) {
+          // Reveal the form below, but stay on the results — the arrow offers
+          // the way down instead of yanking the scroll position.
           feedbackPanel.classList.remove('hidden');
-          feedbackPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          showFeedbackArrow();
         }
       }
     }
@@ -627,6 +651,35 @@ const RecordPage = (function () {
     } finally {
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
     }
+  }
+
+  // ── "Go to Feedback" arrow ────────────────────────────
+  // After an analysis the page centers on the results; if feedback mode is on,
+  // this quiet pill points down to the feedback form and pops away when tapped.
+  function showFeedbackArrow() {
+    removeFeedbackArrow();
+    const btn = document.createElement('button');
+    btn.id = 'feedback-arrow';
+    btn.className = 'feedback-arrow';
+    btn.setAttribute('aria-label', 'Scroll to the feedback form');
+    btn.innerHTML = `
+      <span class="feedback-arrow-caption">Go to Feedback</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    `;
+    btn.addEventListener('click', () => {
+      document.getElementById('feedback-panel')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      btn.classList.add('feedback-arrow-exit');
+      btn.addEventListener('animationend', () => btn.remove(), { once: true });
+    }, { once: true });
+    document.body.appendChild(btn);
+  }
+
+  function removeFeedbackArrow() {
+    document.getElementById('feedback-arrow')?.remove();
   }
 
   // ── Helpers ───────────────────────────────────────────

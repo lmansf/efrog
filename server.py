@@ -26,12 +26,13 @@ MODEL_PATH    = os.environ.get('EFROG_MODEL_PATH', './frog_classifier.onnx')
 # Fallback class list — only used when the model file carries no 'labels'
 # metadata (models exported by efrog-training embed their own label list).
 LABEL_CLASSES = [
-    'Barking Treefrog', 'Bullfrog', 'Carpenter Frog',
-    'Coastal Plains Leopard Frog', "Cope's Gray Treefrog", 'Cuban Tree Frog',
+    'American Bullfrog', 'Barking Tree Frog', 'Cane Toad',
+    'Coastal Plains Leopard Frog', 'Cuban Tree Frog',
     'Eastern Narrow-mouthed Toad', 'Eastern Spadefoot', 'Green Frog',
-    'Green Treefrog', 'Little Grass Frog', 'Oak Toad', 'Pig Frog',
-    'Pine Woods Treefrog', 'River Frog', 'Southern Cricket Frog',
-    'Southern Leopard Frog', 'Squirrel Treefrog',
+    'Green Treefrog', 'Greenhouse Frog', 'Little Grass Frog', 'Oak Toad',
+    'Pig Frog', 'Pine Woods Tree Frog', 'Southern Chorus Frog',
+    'Southern Cricket Frog', 'Southern Leopard Frog', 'Southern Toad',
+    'Squirrel Tree Frog',
 ]
 SAMPLE_RATE   = 16000
 DURATION      = 5.0
@@ -53,7 +54,7 @@ def _too_large(_):
 def _cors(response):
     response.headers['Access-Control-Allow-Origin']  = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     return response
 
 # ── Load model in background thread ──────────────────────────────────────────
@@ -247,61 +248,27 @@ def _require_auth():
         return None, (jsonify({'error': f'Invalid token: {exc}'}), 401)
 
 
-# ── Databricks ────────────────────────────────────────────────────────────────
-_DBC_HOST      = os.environ.get('DATABRICKS_HOST', '')
-_DBC_HTTP_PATH = os.environ.get('DATABRICKS_HTTP_PATH', '')
-_DBC_TOKEN     = os.environ.get('DATABRICKS_TOKEN', '')
-_DBC_CATALOG   = os.environ.get('DATABRICKS_CATALOG', '')
-_DBC_SCHEMA    = os.environ.get('DATABRICKS_SCHEMA', 'efrog')
-_DBC_PREFIX    = f'{_DBC_CATALOG}.{_DBC_SCHEMA}' if _DBC_CATALOG else _DBC_SCHEMA
+# ── Supabase (PostgreSQL) ─────────────────────────────────────────────────────
+import contextlib
+import psycopg2
 
-def _databricks_conn():
-    from databricks import sql as _db_sql
-    return _db_sql.connect(
-        server_hostname=_DBC_HOST,
-        http_path=_DBC_HTTP_PATH,
-        access_token=_DBC_TOKEN,
-    )
+_SB_DB_URL    = os.environ.get('SUPABASE_DB_URL', '')
+_SB_SCHEMA    = 'Version_1'
 
-def _ensure_tables(cur):
-    cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {_DBC_PREFIX}.observations (
-            id            STRING,
-            user_id       STRING,
-            username      STRING,
-            created_at    STRING,
-            type          STRING,
-            name          STRING,
-            duration      DOUBLE,
-            species       STRING,
-            confidence    DOUBLE,
-            probabilities STRING
-        ) USING DELTA
-    """)
-    for col in ['username STRING', 'duration DOUBLE']:
-        try:
-            cur.execute(f"ALTER TABLE {_DBC_PREFIX}.observations ADD COLUMN IF NOT EXISTS {col}")
-        except Exception:
-            pass
-    cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS {_DBC_PREFIX}.feedback (
-            id              STRING,
-            user_id         STRING,
-            observation_id  STRING,
-            created_at      STRING,
-            name            STRING,
-            accuracy_rating INT,
-            site_rating     INT,
-            frogwatch       STRING,
-            note            STRING,
-            species         STRING,
-            confidence      DOUBLE,
-            user_agent      STRING
-        ) USING DELTA
-    """)
+@contextlib.contextmanager
+def _supabase_conn():
+    conn = psycopg2.connect(_SB_DB_URL)
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
-def _databricks_ready():
-    return all([_DBC_HOST, _DBC_TOKEN, _AUTH0_DOMAIN])
+def _supabase_ready():
+    return all([_SB_DB_URL, _AUTH0_DOMAIN])
 
 
 # ── /sync ─────────────────────────────────────────────────────────────────────
@@ -314,27 +281,24 @@ def sync_data():
     if err:
         return err
 
-    if not _databricks_ready():
-        return jsonify({'error': 'Databricks or Auth0 not configured on server'}), 503
+    if not _supabase_ready():
+        return jsonify({'error': 'Supabase or Auth0 not configured on server'}), 503
 
     data         = request.get_json(force=True) or {}
     observations = data.get('observations', [])
     feedback     = data.get('feedback', [])
+    contacts     = data.get('contacts', [])
 
     try:
-        with _databricks_conn() as conn:
+        with _supabase_conn() as conn:
             with conn.cursor() as cur:
-                _ensure_tables(cur)
                 for obs in observations:
                     cur.execute(f"""
-                        MERGE INTO {_DBC_PREFIX}.observations AS t
-                        USING (SELECT %s AS id, %s AS user_id) AS s
-                          ON t.id = s.id AND t.user_id = s.user_id
-                        WHEN NOT MATCHED THEN INSERT
+                        INSERT INTO \"{_SB_SCHEMA}\".observations
                           (id, user_id, username, created_at, type, name, duration, species, confidence, probabilities)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
                     """, [
-                        obs.get('id'), user_id,
                         obs.get('id'), user_id,
                         obs.get('username', ''),
                         obs.get('created_at', ''), obs.get('type', ''),
@@ -346,17 +310,15 @@ def sync_data():
                     ])
                 for fb in feedback:
                     cur.execute(f"""
-                        MERGE INTO {_DBC_PREFIX}.feedback AS t
-                        USING (SELECT %s AS id, %s AS user_id) AS s
-                          ON t.id = s.id AND t.user_id = s.user_id
-                        WHEN NOT MATCHED THEN INSERT
-                          (id, user_id, observation_id, created_at, name,
+                        INSERT INTO \"{_SB_SCHEMA}\".feedback
+                          (id, user_id, contact_id, observation_id, created_at, name,
                            accuracy_rating, site_rating, frogwatch, note,
-                           species, confidence, user_agent)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                           species, confidence, user_agent, make_public)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
                     """, [
                         fb.get('id'), user_id,
-                        fb.get('id'), user_id,
+                        fb.get('contact_id', ''),
                         fb.get('observation_id', ''), fb.get('created_at', ''),
                         fb.get('name', ''),
                         int(fb['accuracy_rating']) if fb.get('accuracy_rating') is not None else None,
@@ -365,11 +327,26 @@ def sync_data():
                         fb.get('species', ''),
                         float(fb['confidence']) if fb.get('confidence') is not None else None,
                         fb.get('user_agent', ''),
+                        bool(fb.get('make_public', False)),
+                    ])
+                for c in contacts:
+                    cur.execute(f"""
+                        INSERT INTO \"{_SB_SCHEMA}\".contacts (id, email, username, updated_at)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                          email = EXCLUDED.email,
+                          username = EXCLUDED.username,
+                          updated_at = EXCLUDED.updated_at
+                    """, [
+                        c.get('id', ''),
+                        c.get('email', ''),
+                        c.get('username', ''),
+                        c.get('updated_at', ''),
                     ])
     except Exception as exc:
         return jsonify({'error': str(exc)}), 500
 
-    return jsonify({'synced': {'observations': len(observations), 'feedback': len(feedback)}})
+    return jsonify({'synced': {'observations': len(observations), 'feedback': len(feedback), 'contacts': len(contacts)}})
 
 
 # ── /observations ─────────────────────────────────────────────────────────────
@@ -382,15 +359,15 @@ def get_observations():
     if err:
         return err
 
-    if not _databricks_ready():
-        return jsonify({'error': 'Databricks or Auth0 not configured on server'}), 503
+    if not _supabase_ready():
+        return jsonify({'error': 'Supabase or Auth0 not configured on server'}), 503
 
     try:
-        with _databricks_conn() as conn:
+        with _supabase_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(f"""
                     SELECT id, created_at, type, name, duration, species, confidence, probabilities
-                    FROM {_DBC_PREFIX}.observations
+                    FROM \"{_SB_SCHEMA}\".observations
                     WHERE user_id = %s
                     ORDER BY created_at DESC
                 """, [user_id])
@@ -407,6 +384,34 @@ def get_observations():
         return jsonify({'error': str(exc)}), 500
 
     return jsonify({'observations': rows})
+
+
+# ── /contact ──────────────────────────────────────────────────────────────────
+@app.route('/contact', methods=['POST', 'OPTIONS'])
+def upsert_anonymous_contact():
+    if request.method == 'OPTIONS':
+        return '', 204
+    if not _SB_DB_URL:
+        return jsonify({'ok': True})
+
+    data       = request.get_json(force=True) or {}
+    contact_id = (data.get('id') or '').strip()
+    if not contact_id:
+        return jsonify({'error': 'id required'}), 400
+
+    try:
+        with _supabase_conn() as conn:
+            with conn.cursor() as cur:
+                from datetime import datetime as _dt
+                cur.execute(f"""
+                    INSERT INTO \"{_SB_SCHEMA}\".contacts (id, email, username, updated_at)
+                    VALUES (%s, '', '', %s)
+                    ON CONFLICT (id) DO NOTHING
+                """, [contact_id, _dt.utcnow().isoformat()])
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({'ok': True})
 
 
 if __name__ == '__main__':

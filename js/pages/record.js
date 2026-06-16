@@ -16,25 +16,8 @@ const RecordPage = (function () {
   let isRecording     = false;
   let recordTimer     = null;
   let recordSeconds   = 0;
-  let factInterval    = null;
-  let factIndex       = 0;
   let currentSpecies    = null;
   let currentConfidence = null;
-
-  const FROG_FACTS = [
-    "There are over 7,000 known species of frogs worldwide.",
-    "Frogs absorb water through their skin — they never actually drink it.",
-    "The glass frog has a transparent belly, so you can see its beating heart.",
-    "Some frogs survive winter by freezing solid and thawing out in spring.",
-    "A group of frogs is called an army.",
-    "The golden poison dart frog holds enough toxin to kill 10 adult humans.",
-    "Frogs were among the first land animals to evolve vocal cords.",
-    "The Goliath frog of Cameroon can weigh over 3 kg — as heavy as a small cat.",
-    "Most frogs can jump up to 20 times their own body length.",
-    "Tree frogs have sticky toe pads that can support their full body weight.",
-    "The mimic poison frog carries its tadpoles on its back to individual pools.",
-    "Some desert frogs can stay dormant underground for up to 7 years waiting for rain.",
-  ];
 
   // ── Render ────────────────────────────────────────────
   function render() {
@@ -85,6 +68,7 @@ const RecordPage = (function () {
 
       <div id="feedback-panel" class="panel panel-feedback hidden">
         <h2 class="panel-title">Give Feedback</h2>
+        <p class="panel-caption">This section is still in development, but you can scream into the void if you want to</p>
 
         <div class="form-group">
           <label class="form-label" for="fb-name">Name <span class="form-optional">(optional)</span></label>
@@ -122,6 +106,21 @@ const RecordPage = (function () {
         <div class="form-group">
           <label class="form-label" for="fb-note">Feedback &amp; Suggestions <span class="form-optional">(optional)</span></label>
           <textarea id="fb-note" class="feedback-note" placeholder="Tell us what you think…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fb-email">Email <span class="form-optional">(optional — only if you'd like us to follow up or feature you)</span></label>
+          <input type="email" id="fb-email" class="form-input" placeholder="you@example.com" autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <div class="feedback-public-row">
+            <label class="feedback-public-label">
+              <input type="checkbox" id="fb-make-public" class="feedback-public-check">
+              Make Public
+            </label>
+            <span class="feedback-public-caption">You're invited to make yourself eligible for feature on our website. As feedback is implemented, some will be selected to celebrate</span>
+          </div>
         </div>
 
         <div class="feedback-row">
@@ -358,84 +357,29 @@ const RecordPage = (function () {
     currentDuration = null;
   }
 
-  // ── Loading Overlay ───────────────────────────────────
+  // ── Loading Indicator ─────────────────────────────────
   function showLoadingOverlay() {
-    factIndex = Math.floor(Math.random() * FROG_FACTS.length);
-
-    const overlay = document.createElement('div');
-    overlay.id        = 'analyze-overlay';
-    overlay.className = 'analyze-overlay';
-    overlay.innerHTML = `
-      <div class="overlay-curtain overlay-curtain-top"></div>
-      <div class="overlay-curtain overlay-curtain-bottom"></div>
-      <div class="overlay-content">
-        <div class="overlay-frog-wrap">
-          <div class="overlay-ring"></div>
-          <div class="overlay-frog">🐸</div>
-        </div>
-        <h2 class="overlay-title">Identifying species…</h2>
-        <p class="overlay-subtitle">Listening for frog calls</p>
-        <div class="overlay-fact-card">
-          <p class="overlay-fact-label">Did you know?</p>
-          <p class="overlay-fact-text" id="overlay-fact-text">${FROG_FACTS[factIndex]}</p>
-        </div>
+    const loader = document.createElement('div');
+    loader.id        = 'analyze-overlay';
+    loader.className = 'analyze-loader';
+    loader.innerHTML = `
+      <div class="analyze-loader-scene">
+        <div class="analyze-loader-pad"></div>
+        <div class="analyze-loader-frog">🐸</div>
+        <div class="analyze-loader-ripple"></div>
+        <div class="analyze-loader-ripple analyze-loader-ripple-2"></div>
       </div>
+      <span class="analyze-loader-text">loading</span>
     `;
-    document.body.appendChild(overlay);
-    document.body.style.overflow = 'hidden';
-
-    requestAnimationFrame(() => {
-      overlay.querySelector('.overlay-curtain-top').classList.add('curtain-opening');
-      overlay.querySelector('.overlay-curtain-bottom').classList.add('curtain-opening');
-    });
-
-    factInterval = setInterval(() => {
-      const el = document.getElementById('overlay-fact-text');
-      if (!el) return;
-      el.classList.add('fact-fade');
-      setTimeout(() => {
-        factIndex = (factIndex + 1) % FROG_FACTS.length;
-        el.textContent = FROG_FACTS[factIndex];
-        el.classList.remove('fact-fade');
-      }, 300);
-    }, 4000);
-
-    // Progressive status messages based on elapsed time
-    const STATUS_MSGS = [
-      [3,  'Decoding audio…'],
-      [8,  'Computing mel spectrogram…'],
-      [15, 'Running neural network…'],
-      [25, 'Almost there…'],
-      [40, 'Still working — large file or slow connection…'],
-    ];
-    const _startTs = Date.now();
-    const _statusTimer = setInterval(() => {
-      const sub = document.querySelector('.overlay-subtitle');
-      if (!sub) { clearInterval(_statusTimer); return; }
-      const secs = (Date.now() - _startTs) / 1000;
-      for (const [t, msg] of STATUS_MSGS) {
-        if (Math.abs(secs - t) < 0.6) { sub.textContent = msg; break; }
-      }
-    }, 500);
-    overlay._statusTimer = _statusTimer;
+    const resultPanel = document.getElementById('result-panel');
+    resultPanel.parentNode.insertBefore(loader, resultPanel);
   }
 
   function hideLoadingOverlay() {
-    clearInterval(factInterval);
-    factInterval = null;
-    const overlay = document.getElementById('analyze-overlay');
-    if (overlay?._statusTimer) clearInterval(overlay._statusTimer);
-    document.body.style.overflow = '';
-    if (!overlay) return;
-
-    const top = overlay.querySelector('.overlay-curtain-top');
-    const bot = overlay.querySelector('.overlay-curtain-bottom');
-    top.classList.remove('curtain-opening');
-    bot.classList.remove('curtain-opening');
-    top.classList.add('curtain-closing');
-    bot.classList.add('curtain-closing');
-
-    top.addEventListener('animationend', () => overlay.remove(), { once: true });
+    const loader = document.getElementById('analyze-overlay');
+    if (!loader) return Promise.resolve();
+    loader.classList.add('loader-exiting');
+    return new Promise(resolve => setTimeout(() => { loader.remove(); resolve(); }, 1100));
   }
 
   // ── Classification ────────────────────────────────────
@@ -526,7 +470,7 @@ const RecordPage = (function () {
     }
 
     await minWait;
-    hideLoadingOverlay();
+    await hideLoadingOverlay();
 
     if (!document.getElementById('result-panel')) return;
 
@@ -633,6 +577,8 @@ const RecordPage = (function () {
         if (acc)  { acc.value  = 5; feedbackPanel.querySelector('#fb-accuracy-val').textContent = '5'; }
         if (site) { site.value = 5; feedbackPanel.querySelector('#fb-site-val').textContent = '5'; }
         if (feedbackPanel.querySelector('#fb-note'))      feedbackPanel.querySelector('#fb-note').value = '';
+        if (feedbackPanel.querySelector('#fb-email'))     feedbackPanel.querySelector('#fb-email').value = '';
+        if (feedbackPanel.querySelector('#fb-make-public')) feedbackPanel.querySelector('#fb-make-public').checked = false;
         feedbackPanel.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
         if (Store.getFeedbackMode()) {
           // Reveal the form below, but stay on the results — the arrow offers
@@ -646,7 +592,9 @@ const RecordPage = (function () {
 
   // ── Feedback ──────────────────────────────────────────
   async function submitFeedback() {
+    const submitBtn      = document.getElementById('submit-feedback');
     const name           = (document.getElementById('fb-name')?.value || '').trim();
+    const email          = (document.getElementById('fb-email')?.value || '').trim();
     const accuracyRating = parseInt(document.getElementById('fb-accuracy')?.value ?? '5', 10);
     const siteRating     = parseInt(document.getElementById('fb-site')?.value ?? '5', 10);
     const frogwatchEl    = document.querySelector('.frogwatch-opt.selected');
@@ -656,21 +604,53 @@ const RecordPage = (function () {
     let userId = null;
     try { userId = (await Auth?.getUser())?.sub ?? null; } catch {}
 
+    const contactId  = window.DB?.getContactId() ?? '';
+    const makePublic = document.getElementById('fb-make-public')?.checked ?? false;
+
+    // Local copy for this device's history (best-effort)
     window.DB?.insertFeedback({
-      observationId:  currentEntryId,
-      userId,
-      name,
-      accuracyRating,
-      siteRating,
-      frogwatch,
-      note,
-      species:    currentSpecies,
-      confidence: currentConfidence,
-      userAgent:  navigator.userAgent,
+      observationId: currentEntryId, userId, contactId, name,
+      accuracyRating, siteRating, frogwatch, note,
+      species: currentSpecies, confidence: currentConfidence,
+      userAgent: navigator.userAgent, makePublic,
     }).catch(() => {});
 
-    document.getElementById('feedback-panel')?.classList.add('hidden');
-    _showToast('Feedback submitted — thank you!');
+    // The actual collection: write straight to Supabase (works anonymously)
+    const row = {
+      id:              crypto.randomUUID(),
+      observation_id:  String(currentEntryId ?? ''),
+      created_at:      new Date().toISOString(),
+      user_id:         userId ?? '',
+      contact_id:      contactId,
+      name,
+      email,
+      accuracy_rating: accuracyRating,
+      site_rating:     siteRating,
+      frogwatch,
+      note,
+      species:         currentSpecies ?? '',
+      confidence:      currentConfidence,
+      user_agent:      navigator.userAgent,
+      make_public:     makePublic,
+    };
+
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+    try {
+      await window.DB.sendFeedback(row);
+      // If they left an email, attach it to their contact record too
+      if (email) {
+        window.DB.sendContact({
+          id: contactId, email, username: name, updated_at: row.created_at,
+        }).catch(() => {});
+      }
+      document.getElementById('feedback-panel')?.classList.add('hidden');
+      _showToast('Feedback submitted — thank you!');
+    } catch (err) {
+      console.error('[feedback] submit failed:', err);
+      _showToast('Could not submit feedback — please try again.');
+    } finally {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
+    }
   }
 
   // ── "Go to Feedback" arrow ────────────────────────────

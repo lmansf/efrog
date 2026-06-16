@@ -49,13 +49,6 @@
       </div>
     </div>
 
-    <div class="boot-corner">
-      <div class="boot-fly-ring"><span class="boot-fly">🪰</span></div>
-      <div class="boot-label">
-        <span class="boot-label-main">Loading<span id="boot-dots"></span></span>
-        <span class="boot-label-sub" id="boot-label-sub">Warming up model…</span>
-      </div>
-    </div>
   </div>
 
   <header class="header">
@@ -110,6 +103,7 @@
        config.js globals are defined before auth.js/db.js execute. -->
   <script defer src="js/config.js"></script>
   <script defer src="https://cdn.auth0.com/js/auth0-spa-js/2.18/auth0-spa-js.production.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script type="module" src="js/classifier.js"></script>
   <script type="module" src="js/auth.js"></script>
   <script type="module" src="js/db.js"></script>

@@ -44,6 +44,7 @@ function _init() {
           observation_id  VARCHAR,
           created_at      VARCHAR,
           user_id         VARCHAR,
+          contact_id      VARCHAR,
           name            VARCHAR,
           accuracy_rating INTEGER,
           site_rating     INTEGER,
@@ -52,7 +53,17 @@ function _init() {
           species         VARCHAR,
           confidence      DOUBLE,
           user_agent      VARCHAR,
+          make_public     BOOLEAN DEFAULT false,
           synced          BOOLEAN DEFAULT false
+        )
+      `);
+
+      await _conn.query(`
+        CREATE TABLE IF NOT EXISTS contacts (
+          id         VARCHAR PRIMARY KEY,
+          email      VARCHAR,
+          username   VARCHAR,
+          updated_at VARCHAR
         )
       `);
     })().catch(err => {
@@ -71,6 +82,38 @@ async function _guard() {
   } catch {
     return false;
   }
+}
+
+// ── Direct Supabase writes ──────────────────────────────────────────────────
+// Feedback and contacts go straight from the browser to Supabase's REST API
+// (PostgREST), guarded by Row-Level-Security insert policies — no server, so it
+// works for anonymous visitors and even when the Render box is asleep.
+
+function _sbReady() {
+  const url = window.SUPABASE_URL, key = window.SUPABASE_ANON_KEY;
+  return Boolean(url && key && !url.includes('YOUR_PROJECT') && !key.includes('YOUR_') && window.supabase);
+}
+
+let _sbClientInstance = null;
+function _sbClient() {
+  if (!_sbClientInstance) {
+    _sbClientInstance = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+      db: { schema: 'Version_1' },
+    });
+  }
+  return _sbClientInstance;
+}
+
+async function _sbInsert(table, row, { merge = false } = {}) {
+  if (!_sbReady()) {
+    throw new Error('Supabase is not configured — set SUPABASE_URL and SUPABASE_ANON_KEY in js/config.js');
+  }
+  const client = _sbClient();
+  const query  = merge
+    ? client.from(table).upsert(row, { onConflict: 'id' })
+    : client.from(table).insert(row);
+  const { error } = await query;
+  if (error) throw new Error(`Supabase ${table} insert failed: ${error.message}`);
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -109,6 +152,8 @@ async function getUnsyncedFeedback() {
     species:        r.species,
     confidence:     r.confidence,
     user_agent:     r.user_agent,
+    contact_id:     r.contact_id,
+    make_public:    r.make_public,
   }));
 }
 
@@ -121,6 +166,52 @@ async function markFeedbackSynced(ids) {
   }
 }
 
+async function getAllContacts() {
+  if (!await _guard()) return [];
+  const tbl = await _conn.query('SELECT * FROM contacts');
+  return tbl.toArray().map(r => ({
+    id:         r.id,
+    email:      r.email,
+    username:   r.username,
+    updated_at: r.updated_at,
+  }));
+}
+
+async function upsertContact({ id, email, username }) {
+  if (!await _guard()) return;
+  const stmt = await _conn.prepare(
+    `INSERT INTO contacts (id, email, username, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET
+       email = excluded.email,
+       username = excluded.username,
+       updated_at = excluded.updated_at`
+  );
+  await stmt.query(
+    String(id),
+    email    ?? '',
+    username ?? '',
+    new Date().toISOString(),
+  );
+  await stmt.close();
+}
+
+// ── Contact ID ───────────────────────────────────────────────────────────────
+// A stable UUID generated on first visit and persisted in localStorage.
+// Anonymous users get one automatically; logged-in users have their email/
+// username attached to it via upsertContact on sign-in.
+
+function _getOrCreateContactId() {
+  const key = 'efrog_contact_id';
+  let id = localStorage.getItem(key);
+  const isNew = !id;
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  return { id, isNew };
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 window.DB = {
@@ -128,18 +219,19 @@ window.DB = {
     return insertObservation(data);
   },
 
-  async insertFeedback({ observationId, userId, name, accuracyRating, siteRating, frogwatch, note, species, confidence, userAgent }) {
+  async insertFeedback({ observationId, userId, contactId, name, accuracyRating, siteRating, frogwatch, note, species, confidence, userAgent, makePublic }) {
     if (!await _guard()) return;
     const stmt = await _conn.prepare(
       `INSERT INTO feedback
-         (id, observation_id, created_at, user_id, name, accuracy_rating, site_rating, frogwatch, note, species, confidence, user_agent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         (id, observation_id, created_at, user_id, contact_id, name, accuracy_rating, site_rating, frogwatch, note, species, confidence, user_agent, make_public)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     await stmt.query(
       crypto.randomUUID(),
       String(observationId ?? ''),
       new Date().toISOString(),
       userId     ?? '',
+      contactId  ?? '',
       name       ?? '',
       accuracyRating != null ? Number(accuracyRating) : null,
       siteRating     != null ? Number(siteRating)     : null,
@@ -148,9 +240,42 @@ window.DB = {
       species    ?? '',
       confidence != null ? Number(confidence) : null,
       userAgent  ?? '',
+      makePublic ?? false,
     );
     await stmt.close();
   },
+
+  async upsertContact(data) {
+    return upsertContact(data);
+  },
+
+  // Send one feedback row straight to Supabase. Throws on failure so the caller
+  // can tell the user; the local copy (insertFeedback) is kept for history.
+  async sendFeedback(row) {
+    return _sbInsert('feedback', row);
+  },
+
+  // Upsert a contact (keyed by the stable contact id) into Supabase. merge=true
+  // so an email provided later attaches to an id seen earlier.
+  async sendContact(row) {
+    return _sbInsert('contacts', row, { merge: true });
+  },
+
+  async sendLoginEvent(row) {
+    return _sbInsert('user_logins', row);
+  },
+
+  getContactId() {
+    const { id, isNew } = _getOrCreateContactId();
+    if (isNew && _sbReady()) {
+      // Best-effort: register the anonymous visitor; email is filled in later
+      // when they provide one (feedback form or sign-in).
+      _sbInsert('contacts', { id, updated_at: new Date().toISOString() }, { merge: true })
+        .catch(() => {});
+    }
+    return id;
+  },
+
 
   async getObservations() {
     if (!await _guard()) return [];
@@ -185,17 +310,15 @@ window.DB = {
     }));
   },
 
-  // Push unsynced local rows to Databricks, then pull remote history back.
-  // Called automatically on sign-in by auth.js.
+  // Optional, signed-in only: sync this device's observation HISTORY through the
+  // Flask API for cross-device continuity. Feedback and contacts no longer go
+  // through here — they're written straight to Supabase (see sendFeedback /
+  // sendContact), so they're collected from everyone without a server.
   async sync(token, username = '') {
     if (!await _guard()) return;
     if (!EFROG_API_URL) return;
 
-    const [observations, feedbackRows] = await Promise.all([
-      this.getObservations(),
-      getUnsyncedFeedback(),
-    ]);
-
+    const observations        = await this.getObservations();
     const stampedObservations = observations.map(o => ({ ...o, username }));
 
     const res = await fetch(`${EFROG_API_URL}/sync`, {
@@ -204,16 +327,12 @@ window.DB = {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ observations: stampedObservations, feedback: feedbackRows }),
+      body: JSON.stringify({ observations: stampedObservations }),
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error ?? `Sync failed ${res.status}`);
-    }
-
-    if (feedbackRows.length) {
-      await markFeedbackSynced(feedbackRows.map(f => f.id));
     }
 
     // Populate local DB with remote history (ON CONFLICT DO NOTHING keeps local data)

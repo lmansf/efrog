@@ -105,10 +105,12 @@ async function _decodeTo16kMono(blob) {
   return _decodeViaVideoElement(blob);
 }
 
+const _OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+
 async function _resampleToMono(decoded) {
   const targetRate = MEL_CONFIG.SAMPLE_RATE;
   const length = Math.max(1, Math.ceil(decoded.duration * targetRate));
-  const offline = new OfflineAudioContext(1, length, targetRate);
+  const offline = new _OfflineCtx(1, length, targetRate);
   const src = offline.createBufferSource();
   src.buffer = decoded;
   src.connect(offline.destination);
@@ -117,87 +119,113 @@ async function _resampleToMono(decoded) {
   return rendered.getChannelData(0);
 }
 
-// Capture up to CAPTURE_SECS of audio from a video element, then resample.
-// The classifier only needs 5 s, so we stop early to avoid wasting time on long videos.
+// Resample native-rate mono PCM → 16 kHz.
+async function _resamplePcm(native, nativeRate) {
+  const targetRate = MEL_CONFIG.SAMPLE_RATE;
+  const targetLen = Math.max(1, Math.ceil((native.length / nativeRate) * targetRate));
+  const offline = new _OfflineCtx(1, targetLen, targetRate);
+  const buf = offline.createBuffer(1, native.length, nativeRate);
+  buf.copyToChannel(native, 0);
+  const src = offline.createBufferSource();
+  src.buffer = buf;
+  src.connect(offline.destination);
+  src.start();
+  const rendered = await offline.startRendering();
+  return rendered.getChannelData(0);
+}
+
+// Capture up to CAPTURE_SECS of audio from a video element in real time, then
+// resample. Handles QuickTime (.mov) which decodeAudioData rejects on both
+// desktop Chrome/Firefox and (for camera-captured files) iOS Safari, even though
+// the <video> element itself can play them.
 async function _decodeViaVideoElement(blob) {
   const CAPTURE_SECS = 5.5;
-  const targetRate = MEL_CONFIG.SAMPLE_RATE;
 
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const video = document.createElement('video');
     video.src = url;
     video.preload = 'auto';
+    video.muted = false;          // muted element feeds silence into the graph
     video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
 
-    video.onerror = () => {
+    let settled = false;
+    const fail = (msg) => {
+      if (settled) return; settled = true;
       URL.revokeObjectURL(url);
-      reject(new Error('Could not decode this video — try exporting as MP4 or MP3 and re-uploading'));
+      reject(new Error(msg));
     };
 
-    video.onloadedmetadata = () => {
+    video.onerror = () => fail('Could not read this video — try exporting it as MP4 or MP3 and re-uploading');
+
+    video.onloadedmetadata = async () => {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new AudioCtx();
-      const nativeRate = ctx.sampleRate;
-      const source = ctx.createMediaElementSource(video);
+      let ctx;
+      try {
+        ctx = new AudioCtx();
+        // iOS starts the context suspended — must resume (the Analyze click is the gesture)
+        if (ctx.state === 'suspended') { try { await ctx.resume(); } catch {} }
 
-      // Silence output so the video plays without being audible
-      const silencer = ctx.createGain();
-      silencer.gain.value = 0;
+        const nativeRate = ctx.sampleRate;
+        const source = ctx.createMediaElementSource(video);
+        const silencer = ctx.createGain();
+        silencer.gain.value = 0;     // play inaudibly
 
-      const captured = [];
-      let finished = false;
+        const captured = [];
+        let finished = false;
 
-      const proc = ctx.createScriptProcessor(4096, 1, 1);
-      proc.onaudioprocess = e => {
-        if (finished) return;
-        captured.push(new Float32Array(e.inputBuffer.getChannelData(0)));
-      };
+        const proc = ctx.createScriptProcessor(4096, 1, 1);
+        proc.onaudioprocess = e => {
+          if (finished) return;
+          captured.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        };
 
-      source.connect(proc);
-      proc.connect(silencer);
-      silencer.connect(ctx.destination);
+        source.connect(proc);
+        proc.connect(silencer);
+        silencer.connect(ctx.destination);
 
-      const finish = async () => {
-        if (finished) return;
-        finished = true;
-        video.pause();
-        proc.disconnect();
-        source.disconnect();
-        await ctx.close().catch(() => {});
-        URL.revokeObjectURL(url);
+        const finish = async () => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(capTimer);
+          try { video.pause(); } catch {}
+          try { proc.disconnect(); source.disconnect(); silencer.disconnect(); } catch {}
+          await ctx.close().catch(() => {});
+          URL.revokeObjectURL(url);
 
-        // Flatten captured chunks
-        const total = captured.reduce((s, a) => s + a.length, 0);
-        const native = new Float32Array(total);
-        let off = 0;
-        for (const c of captured) { native.set(c, off); off += c.length; }
+          const total = captured.reduce((s, a) => s + a.length, 0);
+          if (total === 0) { if (!settled) { settled = true; reject(new Error('No audio track found in this video')); } return; }
 
-        // Resample native-rate mono PCM → 16 kHz via OfflineAudioContext
-        const targetLen = Math.max(1, Math.ceil((native.length / nativeRate) * targetRate));
-        try {
-          const offline = new OfflineAudioContext(1, targetLen, targetRate);
-          const buf = offline.createBuffer(1, native.length, nativeRate);
-          buf.copyToChannel(native, 0);
-          const src = offline.createBufferSource();
-          src.buffer = buf;
-          src.connect(offline.destination);
-          src.start();
-          const rendered = await offline.startRendering();
-          resolve(rendered.getChannelData(0));
-        } catch (e) {
-          reject(e);
-        }
-      };
+          const native = new Float32Array(total);
+          let off = 0;
+          for (const c of captured) { native.set(c, off); off += c.length; }
 
-      video.onended = finish;
-      // Stop capture after CAPTURE_SECS so we don't wait through a 10-minute video
-      setTimeout(finish, (CAPTURE_SECS + 0.5) * 1000);
+          // Detect the iOS createMediaElementSource silence bug: all ~zero samples
+          let peak = 0;
+          for (let i = 0; i < native.length; i += 257) { const v = Math.abs(native[i]); if (v > peak) peak = v; }
+          if (peak < 1e-5) {
+            if (!settled) { settled = true; reject(new Error("Couldn't capture audio from this video on your device — try uploading the audio as an M4A or MP3 instead")); }
+            return;
+          }
 
-      video.play().catch(e => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Browser blocked video playback — try a different file format'));
-      });
+          try {
+            const out = await _resamplePcm(native, nativeRate);
+            if (!settled) { settled = true; resolve(out); }
+          } catch (e) {
+            if (!settled) { settled = true; reject(e); }
+          }
+        };
+
+        video.onended = finish;
+        const capTimer = setTimeout(finish, (CAPTURE_SECS + 0.5) * 1000);
+
+        await video.play().catch(() => fail('Your browser blocked silent video playback needed to read the audio — try uploading an M4A or MP3 instead'));
+      } catch (e) {
+        if (ctx) ctx.close().catch(() => {});
+        fail('Could not decode the audio from this video — try uploading an M4A or MP3 instead');
+      }
     };
   });
 }

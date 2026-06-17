@@ -1089,6 +1089,27 @@ body {
   max-width: 280px;
 }
 
+/* ── Loading dots ── */
+.boot-loader {
+  display: flex;
+  gap: 7px;
+  margin-top: 8px;
+}
+.boot-loader span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .55);
+  animation: bootDot 1.2s ease-in-out infinite;
+}
+.boot-loader span:nth-child(2) { animation-delay: .18s; }
+.boot-loader span:nth-child(3) { animation-delay: .36s; }
+
+@keyframes bootDot {
+  0%, 80%, 100% { opacity: .25; transform: scale(.8); }
+  40%           { opacity: 1;   transform: scale(1); }
+}
+
 /* ── Skip button (shown if server takes too long) ── */
 .boot-skip-btn {
   position: absolute;

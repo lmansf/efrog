@@ -681,6 +681,91 @@ body {
 .frog-box-badge.correct   { background: var(--success); }
 .frog-box-badge.incorrect { background: var(--danger); }
 
+.frog-box[data-id] { cursor: pointer; }
+
+.frog-box.selected {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 0 0 2px var(--primary-dim), var(--shadow-md);
+}
+
+/* Frog hops in place when its box is selected */
+.frog-sprite-wrap.frog-jump .frog-sprite { animation: frogJump .55s var(--ease-spring); }
+@keyframes frogJump {
+  0%, 100% { transform: translateY(0); }
+  25%      { transform: translateY(-10px) scaleY(1.06); }
+  50%      { transform: translateY(-15px); }
+  75%      { transform: translateY(-5px); }
+}
+
+/* ── Observation card modal ── */
+.card-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  transition: opacity .25s var(--ease-out);
+}
+.card-modal.open { opacity: 1; }
+
+.card-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 15, 8, .55);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.card-modal-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  transform: scale(.82) translateY(12px);
+  transition: transform .32s var(--ease-spring);
+}
+.card-modal.open .card-modal-body { transform: scale(1) translateY(0); }
+
+.card-modal .tcg-card {
+  width: clamp(220px, 72vw, 280px);
+  animation: none;            /* the modal body handles the entrance */
+}
+.card-modal .tcg-card-sprite {
+  width: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-modal .tcg-card-sprite .frog-sprite { max-width: 112px; }
+
+.card-modal-meta {
+  color: rgba(255, 255, 255, .85);
+  font-size: .85rem;
+}
+.card-modal-close {
+  background: rgba(255, 255, 255, .15);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 999px;
+  padding: 8px 24px;
+  font-size: .85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .2s;
+}
+.card-modal-close:hover { background: rgba(255, 255, 255, .25); }
+
+@media (prefers-reduced-motion: reduce) {
+  .frog-sprite-wrap.frog-jump .frog-sprite { animation: none; }
+  .card-modal, .card-modal-body { transition: none; }
+}
+
 .feedback-chip {
   display: inline-flex;
   align-items: center;

@@ -214,7 +214,7 @@ const RecordPage = (function () {
 
   function handleFile(file) {
     if (!_isAudioFile(file)) {
-      _showToast(‘That doesn’t look like an audio or video file — try MP3, WAV, M4A, OGG, FLAC or MOV.’);
+      _showToast("That doesn’t look like an audio or video file — try MP3, WAV, M4A, OGG, FLAC or MOV.");
       return;
     }
     if (file.size === 0) {

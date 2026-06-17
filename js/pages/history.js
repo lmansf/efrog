@@ -113,7 +113,8 @@ const HistoryPage = (function () {
     }
 
     return `
-      <div class="frog-box" title="${name} — ${esc(when)}${conf ? ` · ${conf}` : ''}">
+      <div class="frog-box" data-id="${esc(String(entry.id))}" role="button" tabindex="0"
+           title="${name} — ${esc(when)}${conf ? ` · ${conf}` : ''}">
         ${badge}
         <div class="frog-sprite-wrap">${frogSprite(species)}</div>
         <p class="frog-box-name">${name}</p>
@@ -130,6 +131,80 @@ const HistoryPage = (function () {
       .replace(/"/g, '&quot;');
   }
 
+  // ── Observation card (centered modal) ───────────────────
+  function cardModalHtml(entry) {
+    const species = entry.result?.species ?? entry.result?.classification ?? 'Unknown';
+    const name    = esc(String(entry.result?.classification ?? 'Unknown'));
+    const hue     = hueOf(species);
+    const d       = new Date(entry.timestamp);
+    const when    = `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const typeLabel = entry.type === 'recording' ? 'Recording' : 'Upload';
+    const conf    = typeof entry.result?.confidence === 'number'
+      ? `${(entry.result.confidence * 100).toFixed(0)}%` : '';
+
+    return `
+      <div class="card-modal" id="card-modal">
+        <div class="card-modal-backdrop" data-close="1"></div>
+        <div class="card-modal-body">
+          <div class="tcg-card" style="--i:0; --card-hue:${hue};">
+            <div class="tcg-card-shine"></div>
+            <div class="tcg-card-frame">
+              <div class="tcg-card-header">
+                <span class="tcg-card-title">${name}</span>
+                ${conf ? `<span class="tcg-card-conf">${conf}</span>` : ''}
+              </div>
+              <div class="tcg-card-art"><div class="tcg-card-sprite">${frogSprite(species)}</div></div>
+              <div class="tcg-card-footer">
+                <span>eFrog · Florida</span>
+                <span class="tcg-card-rarity">${conf ? 'Confident ID' : 'Observation'}</span>
+              </div>
+            </div>
+          </div>
+          <p class="card-modal-meta">${typeLabel} · ${esc(when)}</p>
+          <button class="card-modal-close" data-close="1">Close</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function openCardModal(entry) {
+    if (!entry) return;
+    closeCardModal();
+    const tpl = document.createElement('div');
+    tpl.innerHTML = cardModalHtml(entry);
+    const modal = tpl.firstElementChild;
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('open'));
+
+    modal.addEventListener('click', e => {
+      if (e.target.closest('[data-close]')) closeCardModal();
+    });
+    const onKey = e => { if (e.key === 'Escape') closeCardModal(); };
+    document.addEventListener('keydown', onKey);
+    modal._onKey = onKey;
+  }
+
+  function closeCardModal() {
+    const modal = document.getElementById('card-modal');
+    if (!modal) return;
+    if (modal._onKey) document.removeEventListener('keydown', modal._onKey);
+    modal.classList.remove('open');
+    modal.classList.add('closing');
+    let removed = false;
+    const done = () => { if (removed) return; removed = true; modal.remove(); };
+    modal.addEventListener('transitionend', done, { once: true });
+    setTimeout(done, 400);
+  }
+
+  function jump(box) {
+    const wrap = box.querySelector('.frog-sprite-wrap');
+    if (!wrap) return;
+    wrap.classList.remove('frog-jump');
+    void wrap.offsetWidth;                 // reflow so the animation can restart
+    wrap.classList.add('frog-jump');
+    wrap.addEventListener('animationend', () => wrap.classList.remove('frog-jump'), { once: true });
+  }
+
   function init() {
     const clearBtn = document.getElementById('clear-history');
     if (clearBtn) {
@@ -140,6 +215,35 @@ const HistoryPage = (function () {
         }
       });
     }
+
+    const byId = new Map(Store.getHistory().map(e => [String(e.id), e]));
+    let selectedId = null;
+
+    function selectBoxesFor(id) {
+      document.querySelectorAll('.frog-box.selected').forEach(b => b.classList.remove('selected'));
+      document.querySelectorAll(`.frog-box[data-id="${CSS.escape(id)}"]`).forEach(b => {
+        b.classList.add('selected');
+        jump(b);
+      });
+    }
+
+    function handleActivate(box) {
+      const id = box.dataset.id;
+      if (!id) return;
+      if (selectedId === id) {
+        openCardModal(byId.get(id));   // second tap → show the card
+      } else {
+        selectedId = id;               // first tap → select + jump
+        selectBoxesFor(id);
+      }
+    }
+
+    document.querySelectorAll('.frog-box[data-id]').forEach(box => {
+      box.addEventListener('click', () => handleActivate(box));
+      box.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleActivate(box); }
+      });
+    });
   }
 
   return { render, init };

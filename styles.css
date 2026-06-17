@@ -564,58 +564,122 @@ body {
   margin-bottom: 20px;
 }
 
-.history-list { display: flex; flex-direction: column; gap: 12px; }
+/* ── Collection (frog storage boxes) ───────────────────── */
+.collection-section { margin-bottom: 28px; }
 
-.history-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  box-shadow: var(--shadow);
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 14px;
-  align-items: start;
-  transition:
-    transform   .22s var(--ease-smooth),
-    box-shadow  .22s var(--ease-smooth);
+.collection-section-title {
+  font-size: .8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.history-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--primary-light);
+.collection-count {
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: 0;
   color: var(--primary);
+  background: var(--primary-light);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.collection-hint {
+  font-size: .8rem;
+  color: var(--text-light);
+  margin-top: 10px;
+}
+
+.frog-box-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  gap: 10px;
+  background: var(--primary-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: inset 0 1px 4px rgba(40,28,12,.06);
+}
+
+.frog-box {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 6px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: transform .18s var(--ease-smooth), box-shadow .18s var(--ease-smooth);
+}
+
+.frog-box:not(.frog-box-empty):hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.frog-box-empty {
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(150,140,120,.35);
+  box-shadow: inset 0 1px 3px rgba(40,28,12,.04);
+  min-height: 92px;
+}
+
+.frog-sprite-wrap {
+  width: 100%;
+  aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
-  flex-shrink: 0;
+  padding: 6px;
 }
 
-.history-info { min-width: 0; }
+.frog-sprite {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-width: 56px;
+}
 
-.history-name {
+.frog-box-name {
+  font-size: .72rem;
   font-weight: 600;
-  font-size: .9rem;
-  white-space: nowrap;
+  text-align: center;
+  line-height: 1.2;
+  width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 2px;
 }
 
-.history-meta {
-  font-size: .78rem;
+.frog-box-conf {
+  font-size: .66rem;
   color: var(--text-light);
-  margin-bottom: 8px;
 }
 
-.history-classification { font-size: .875rem; }
-.history-classification .label { color: var(--text-muted); }
-
-.history-feedback { margin-top: 8px; }
-.history-feedback-note { font-size: .8rem; color: var(--text-muted); margin-top: 4px; font-style: italic; }
+.frog-box-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .62rem;
+  font-weight: 700;
+  color: #fff;
+}
+.frog-box-badge.correct   { background: var(--success); }
+.frog-box-badge.incorrect { background: var(--danger); }
 
 .feedback-chip {
   display: inline-flex;
@@ -1330,17 +1394,6 @@ body {
     transition: transform .22s var(--ease-smooth), box-shadow .22s var(--ease-smooth);
   }
   .about-section:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-
-  /* History card: 3-col with time on desktop */
-  .history-card {
-    grid-template-columns: auto 1fr auto;
-    padding: 20px;
-    gap: 16px;
-  }
-  .history-card:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
   }

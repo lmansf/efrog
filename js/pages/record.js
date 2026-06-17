@@ -522,41 +522,51 @@ const RecordPage = (function () {
         } catch {}
       }).catch(() => {});
 
-      const CONFIDENCE_THRESHOLD = 0.90;
-      const confident = apiResult.confidence >= CONFIDENCE_THRESHOLD;
-      const pct = (apiResult.confidence * 100).toFixed(1);
+      const THRESHOLD = 0.90;
+      const sorted    = Object.entries(apiResult.probabilities).sort(([, a], [, b]) => b - a);
+      const confident = sorted.filter(([, p]) => p >= THRESHOLD);
+      const lowConf   = sorted.filter(([, p]) => p < THRESHOLD);
 
-      const probBars = Object.entries(apiResult.probabilities)
-        .sort(([, a], [, b]) => b - a)
-        .map(([sp, p]) => `
-          <div class="prob-row">
-            <span class="prob-label">${formatSpecies(sp)}</span>
-            <div class="prob-bar-wrap">
-              <div class="prob-bar ${confident && sp === apiResult.species ? 'prob-bar-top' : ''}"
-                   data-width="${(p * 100).toFixed(1)}%"></div>
-            </div>
-            <span class="prob-pct">${(p * 100).toFixed(1)}%</span>
+      const cardsHtml = confident.length
+        ? `<div class="tcg-pack">${confident.map(([sp, p], i) => cardHtml(sp, p, i)).join('')}</div>`
+        : `<div class="result-species">
+             <div class="result-species-name result-uncertain">No confident match</div>
+             <div class="result-confidence-badge confidence-low">Nothing scored above ${Math.round(THRESHOLD * 100)}%</div>
+           </div>`;
+
+      const lowHtml = lowConf.length ? `
+        <div class="lowconf">
+          <h3 class="lowconf-title">Low Confidence IDs</h3>
+          <div class="result-probabilities">
+            ${lowConf.map(([sp, p]) => `
+              <div class="prob-row">
+                <span class="prob-label">${formatSpecies(sp)}</span>
+                <div class="prob-bar-wrap">
+                  <div class="prob-bar" data-width="${(p * 100).toFixed(1)}%"></div>
+                </div>
+                <span class="prob-pct">${(p * 100).toFixed(1)}%</span>
+              </div>
+            `).join('')}
           </div>
-        `).join('');
+        </div>` : '';
 
-      resultContent.innerHTML = confident ? `
-        <div class="result-species">
-          <div class="result-species-name">${formatSpecies(apiResult.species)}</div>
-          <div class="result-confidence-badge confidence-high">${pct}% confidence</div>
-        </div>
-        <div class="result-probabilities">${probBars}</div>
-      ` : `
-        <div class="result-species">
-          <div class="result-species-name result-uncertain">No confident match</div>
-          <div class="result-confidence-badge confidence-low">Below 90% threshold</div>
-        </div>
-        <div class="result-probabilities">${probBars}</div>
-      `;
+      resultContent.innerHTML = cardsHtml + lowHtml;
 
-      // Animate bars in after DOM paint
+      // Animate low-confidence bars in after DOM paint
       requestAnimationFrame(() => {
         resultContent.querySelectorAll('.prob-bar').forEach(bar => {
           bar.style.width = bar.dataset.width;
+        });
+      });
+
+      // Wire each card's dismiss (fly-away) animation
+      resultContent.querySelectorAll('.tcg-card-close').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const card = btn.closest('.tcg-card');
+          if (!card) return;
+          card.classList.add('tcg-card-dismiss');
+          card.addEventListener('animationend', () => card.remove(), { once: true });
         });
       });
     }
@@ -700,6 +710,38 @@ const RecordPage = (function () {
 
   function formatSpecies(raw) {
     return String(raw).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // Stable hue per species so each placeholder card looks distinct but consistent.
+  function hueOf(str) {
+    let h = 0;
+    for (const ch of String(str)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    return h;
+  }
+
+  // Placeholder trading-card for a confident match. Same info shown today
+  // (species name + confidence); the 🐸 art slot is ready to swap for real art.
+  function cardHtml(species, prob, i) {
+    const name = formatSpecies(species);
+    const pct  = (prob * 100).toFixed(0);
+    const hue  = hueOf(species);
+    return `
+      <div class="tcg-card" style="--i:${i}; --card-hue:${hue};">
+        <button class="tcg-card-close" aria-label="Dismiss card">&times;</button>
+        <div class="tcg-card-shine"></div>
+        <div class="tcg-card-frame">
+          <div class="tcg-card-header">
+            <span class="tcg-card-title">${escHtml(name)}</span>
+            <span class="tcg-card-conf">${pct}%</span>
+          </div>
+          <div class="tcg-card-art"><span class="tcg-card-frog">🐸</span></div>
+          <div class="tcg-card-footer">
+            <span>eFrog · Florida</span>
+            <span class="tcg-card-rarity">Confident ID</span>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function escHtml(str) {

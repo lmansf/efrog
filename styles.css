@@ -689,6 +689,36 @@ body {
   box-shadow: 0 0 0 2px var(--primary-dim), var(--shadow-md);
 }
 
+/* Remove control — only visible once the box is selected */
+.frog-box-remove {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.frog-box-remove svg { width: 13px; height: 13px; }
+.frog-box.selected .frog-box-remove { display: flex; }
+.frog-box-remove:hover { filter: brightness(1.08); }
+
+.frog-box.frog-box-removing {
+  animation: frogBoxRemove .3s var(--ease-out) forwards;
+  pointer-events: none;
+}
+@keyframes frogBoxRemove {
+  to { opacity: 0; transform: scale(.7); }
+}
+
 /* Frog hops in place when its box is selected */
 .frog-sprite-wrap.frog-jump .frog-sprite { animation: frogJump .55s var(--ease-spring); }
 @keyframes frogJump {

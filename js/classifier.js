@@ -83,27 +83,123 @@ const ready = (async () => {
 
 // ── Audio → 16 kHz mono Float32 (mirrors ffmpeg -ac 1 -ar 16000 in the server) ──
 async function _decodeTo16kMono(blob) {
-  const arrayBuf = await blob.arrayBuffer();
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) throw new Error('Web Audio API not supported in this browser');
 
-  const ctx = new AudioCtx();
-  let decoded;
+  // Try fast path: decodeAudioData (works for audio/*, mp4, webm; fails for .mov on desktop)
+  const arrayBuf = await blob.arrayBuffer();
+  let decoded = null;
+  const ctx0 = new AudioCtx();
   try {
-    decoded = await ctx.decodeAudioData(arrayBuf);
-  } finally {
-    ctx.close();
+    decoded = await ctx0.decodeAudioData(arrayBuf);
+  } catch { /* fall through to video-element path */ }
+  finally { ctx0.close(); }
+
+  if (decoded) {
+    return _resampleToMono(decoded);
   }
 
+  // Fallback: route audio through an HTMLVideoElement + ScriptProcessor.
+  // This handles QuickTime (.mov) on desktop Chrome/Firefox, which decodeAudioData
+  // cannot decode even though the video element can play it.
+  return _decodeViaVideoElement(blob);
+}
+
+async function _resampleToMono(decoded) {
   const targetRate = MEL_CONFIG.SAMPLE_RATE;
   const length = Math.max(1, Math.ceil(decoded.duration * targetRate));
   const offline = new OfflineAudioContext(1, length, targetRate);
   const src = offline.createBufferSource();
-  src.buffer = decoded;            // OfflineAudioContext downmixes to mono + resamples
+  src.buffer = decoded;
   src.connect(offline.destination);
   src.start();
   const rendered = await offline.startRendering();
   return rendered.getChannelData(0);
+}
+
+// Capture up to CAPTURE_SECS of audio from a video element, then resample.
+// The classifier only needs 5 s, so we stop early to avoid wasting time on long videos.
+async function _decodeViaVideoElement(blob) {
+  const CAPTURE_SECS = 5.5;
+  const targetRate = MEL_CONFIG.SAMPLE_RATE;
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const video = document.createElement('video');
+    video.src = url;
+    video.preload = 'auto';
+    video.playsInline = true;
+
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not decode this video — try exporting as MP4 or MP3 and re-uploading'));
+    };
+
+    video.onloadedmetadata = () => {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const nativeRate = ctx.sampleRate;
+      const source = ctx.createMediaElementSource(video);
+
+      // Silence output so the video plays without being audible
+      const silencer = ctx.createGain();
+      silencer.gain.value = 0;
+
+      const captured = [];
+      let finished = false;
+
+      const proc = ctx.createScriptProcessor(4096, 1, 1);
+      proc.onaudioprocess = e => {
+        if (finished) return;
+        captured.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      };
+
+      source.connect(proc);
+      proc.connect(silencer);
+      silencer.connect(ctx.destination);
+
+      const finish = async () => {
+        if (finished) return;
+        finished = true;
+        video.pause();
+        proc.disconnect();
+        source.disconnect();
+        await ctx.close().catch(() => {});
+        URL.revokeObjectURL(url);
+
+        // Flatten captured chunks
+        const total = captured.reduce((s, a) => s + a.length, 0);
+        const native = new Float32Array(total);
+        let off = 0;
+        for (const c of captured) { native.set(c, off); off += c.length; }
+
+        // Resample native-rate mono PCM → 16 kHz via OfflineAudioContext
+        const targetLen = Math.max(1, Math.ceil((native.length / nativeRate) * targetRate));
+        try {
+          const offline = new OfflineAudioContext(1, targetLen, targetRate);
+          const buf = offline.createBuffer(1, native.length, nativeRate);
+          buf.copyToChannel(native, 0);
+          const src = offline.createBufferSource();
+          src.buffer = buf;
+          src.connect(offline.destination);
+          src.start();
+          const rendered = await offline.startRendering();
+          resolve(rendered.getChannelData(0));
+        } catch (e) {
+          reject(e);
+        }
+      };
+
+      video.onended = finish;
+      // Stop capture after CAPTURE_SECS so we don't wait through a 10-minute video
+      setTimeout(finish, (CAPTURE_SECS + 0.5) * 1000);
+
+      video.play().catch(e => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Browser blocked video playback — try a different file format'));
+      });
+    };
+  });
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

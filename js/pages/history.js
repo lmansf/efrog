@@ -116,6 +116,15 @@ const HistoryPage = (function () {
       <div class="frog-box" data-id="${esc(String(entry.id))}" role="button" tabindex="0"
            title="${name} — ${esc(when)}${conf ? ` · ${conf}` : ''}">
         ${badge}
+        <button class="frog-box-remove" aria-label="Remove this observation" title="Remove">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </button>
         <div class="frog-sprite-wrap">${frogSprite(species)}</div>
         <p class="frog-box-name">${name}</p>
         ${conf ? `<span class="frog-box-conf">${conf}</span>` : ''}
@@ -205,6 +214,15 @@ const HistoryPage = (function () {
     wrap.addEventListener('animationend', () => wrap.classList.remove('frog-jump'), { once: true });
   }
 
+  function removeObservation(id) {
+    if (!confirm('Remove this observation? This cannot be undone.')) return;
+    document.querySelectorAll(`.frog-box[data-id="${CSS.escape(id)}"]`)
+      .forEach(b => b.classList.add('frog-box-removing'));
+    Store.removeEntry(id);
+    closeCardModal();
+    setTimeout(() => Router.navigate(), 300);
+  }
+
   function init() {
     const clearBtn = document.getElementById('clear-history');
     if (clearBtn) {
@@ -242,6 +260,14 @@ const HistoryPage = (function () {
       box.addEventListener('click', () => handleActivate(box));
       box.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleActivate(box); }
+      });
+    });
+
+    document.querySelectorAll('.frog-box-remove').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();              // don't trigger select / open-card
+        const id = btn.closest('.frog-box')?.dataset.id;
+        if (id) removeObservation(id);
       });
     });
   }

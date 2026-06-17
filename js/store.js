@@ -34,6 +34,11 @@ const Store = {
     }
   },
 
+  removeEntry(id) {
+    const history = this.getHistory().filter(e => String(e.id) !== String(id));
+    localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history));
+  },
+
   clearHistory() {
     localStorage.removeItem(this.HISTORY_KEY);
   },

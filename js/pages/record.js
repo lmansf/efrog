@@ -487,9 +487,14 @@ const RecordPage = (function () {
         </div>
       `;
     } else {
+      // 5% chance this observation is "holo" — decided once, at creation, so it
+      // stays stable. Holographic card rendering comes later.
+      const isHolo = Math.random() < 0.05;
+
       const entry = Store.addEntry({
         type: audioBlob ? 'recording' : 'upload',
         name: currentFileName || 'Audio',
+        is_holo: isHolo,
         result: {
           classification: formatSpecies(apiResult.species),
           species:        apiResult.species,
@@ -510,6 +515,7 @@ const RecordPage = (function () {
         species:       apiResult.species,
         confidence:    apiResult.confidence,
         probabilities: apiResult.probabilities,
+        is_holo:       isHolo,
       }).then(async () => {
         try {
           if (await window.Auth?.isAuthenticated()) {

@@ -34,7 +34,8 @@ function _init() {
           duration      DOUBLE,
           species       VARCHAR,
           confidence    DOUBLE,
-          probabilities VARCHAR
+          probabilities VARCHAR,
+          is_holo       BOOLEAN DEFAULT false
         )
       `);
 
@@ -118,11 +119,11 @@ async function _sbInsert(table, row, { merge = false } = {}) {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-async function insertObservation({ id, created_at, type, name, duration, species, confidence, probabilities }) {
+async function insertObservation({ id, created_at, type, name, duration, species, confidence, probabilities, is_holo }) {
   if (!await _guard()) return;
   const stmt = await _conn.prepare(
-    `INSERT INTO observations (id, created_at, type, name, duration, species, confidence, probabilities)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`
+    `INSERT INTO observations (id, created_at, type, name, duration, species, confidence, probabilities, is_holo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`
   );
   await stmt.query(
     String(id),
@@ -132,6 +133,7 @@ async function insertObservation({ id, created_at, type, name, duration, species
     species,
     Number(confidence),
     typeof probabilities === 'string' ? probabilities : JSON.stringify(probabilities),
+    Boolean(is_holo),
   );
   await stmt.close();
 }
@@ -291,6 +293,7 @@ window.DB = {
       probabilities: typeof r.probabilities === 'string'
         ? JSON.parse(r.probabilities)
         : r.probabilities,
+      is_holo:       Boolean(r.is_holo),
     }));
   },
 

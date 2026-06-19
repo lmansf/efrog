@@ -39,6 +39,26 @@ const Store = {
     localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history));
   },
 
+  // Merge in entries that aren't already present (by id), then sort newest-first.
+  // Used to surface a signed-in user's remote observations. Returns how many were
+  // added so callers can decide whether to re-render.
+  importEntries(entries) {
+    const history = this.getHistory();
+    const have = new Set(history.map(e => String(e.id)));
+    let added = 0;
+    for (const e of entries) {
+      if (!e || e.id == null || have.has(String(e.id))) continue;
+      history.push(e);
+      have.add(String(e.id));
+      added++;
+    }
+    if (added) {
+      history.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')));
+      localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history));
+    }
+    return added;
+  },
+
   clearHistory() {
     localStorage.removeItem(this.HISTORY_KEY);
   },

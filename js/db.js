@@ -251,6 +251,12 @@ window.DB = {
     return upsertContact(data);
   },
 
+  // Send one observation straight to Supabase as it happens (works anonymously,
+  // RLS-governed). merge=true so a later server sync / re-send is idempotent.
+  async sendObservation(row) {
+    return _sbInsert('observations', row, { merge: true });
+  },
+
   // Send one feedback row straight to Supabase. Throws on failure so the caller
   // can tell the user; the local copy (insertFeedback) is kept for history.
   async sendFeedback(row) {
@@ -295,6 +301,23 @@ window.DB = {
         : r.probabilities,
       is_holo:       Boolean(r.is_holo),
     }));
+  },
+
+  // Logged-in retrieval: fetch this user's observations from the server, which
+  // validates the Auth0 token and queries Supabase by user_id. Returns [] on any
+  // failure (e.g. server asleep) so the Collection still shows local history.
+  async fetchRemoteObservations(token) {
+    if (!EFROG_API_URL || !token) return [];
+    try {
+      const res = await fetch(`${EFROG_API_URL}/observations`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.observations ?? [];
+    } catch {
+      return [];
+    }
   },
 
   async getFeedback(observationId) {

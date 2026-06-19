@@ -140,6 +140,40 @@ const HistoryPage = (function () {
       .replace(/"/g, '&quot;');
   }
 
+  function formatSpecies(raw) {
+    return String(raw ?? '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // Map a server observation row into the local history entry shape.
+  function remoteToEntry(o) {
+    return {
+      id:        o.id,
+      timestamp: o.created_at || new Date().toISOString(),
+      type:      o.type || 'upload',
+      name:      o.name || 'Observation',
+      is_holo:   Boolean(o.is_holo),
+      result: {
+        classification: formatSpecies(o.species),
+        species:        o.species,
+        confidence:     o.confidence,
+        probabilities:  o.probabilities || {},
+      },
+    };
+  }
+
+  // Signed-in users: pull their observations from the server (which validates the
+  // Auth0 token) and merge any missing ones into the local collection.
+  async function syncRemote() {
+    try {
+      if (!(await window.Auth?.isAuthenticated())) return;
+      const token  = await window.Auth.getToken();
+      const remote = await window.DB?.fetchRemoteObservations(token) ?? [];
+      if (!remote.length) return;
+      const added = Store.importEntries(remote.map(remoteToEntry));
+      if (added) Router.navigate();   // re-render with the newly retrieved frogs
+    } catch { /* offline / server asleep — keep showing local history */ }
+  }
+
   // ── Observation card (centered modal) ───────────────────
   function cardModalHtml(entry) {
     const species = entry.result?.species ?? entry.result?.classification ?? 'Unknown';
@@ -270,6 +304,8 @@ const HistoryPage = (function () {
         if (id) removeObservation(id);
       });
     });
+
+    syncRemote();   // best-effort: surface a signed-in user's remote observations
   }
 
   return { render, init };

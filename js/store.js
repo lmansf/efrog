@@ -1,3 +1,36 @@
+// Placeholder frog facts + catalog identifiers for the observation cards.
+// Picked deterministically from the species name so each species always shows
+// the same fact and id. Swap for per-species data when real content lands.
+const FROG_FACTS = [
+  'Frogs absorb water through their skin — they never drink with their mouths.',
+  'A frog’s call is unique to its species; no two sound alike.',
+  'Many frogs can leap over 20 times their own body length.',
+  'Frogs were among the first land animals to evolve vocal cords.',
+  'Tree frogs have sticky toe pads that grip almost any surface.',
+  'A group of frogs is called an army.',
+  'Some frogs can survive being partially frozen through winter.',
+  'Frogs often shed their skin weekly — and then eat it.',
+  'A frog’s eyes help it swallow by pushing food down its throat.',
+  'Florida is home to dozens of native frog and toad species.',
+  'Choruses of frogs are loudest near water at dusk and after rain.',
+  'Frogs breathe through both their lungs and their skin.',
+];
+
+function _frogHash(str, seed) {
+  let h = seed >>> 0;
+  for (const c of String(str)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return h;
+}
+function frogFactFor(species) {
+  return FROG_FACTS[_frogHash(species, 7) % FROG_FACTS.length];
+}
+function frogCatalogId(species) {
+  const n = (_frogHash(species, 131) % 199) + 1;
+  return 'EF-' + String(n).padStart(3, '0');
+}
+window.frogFactFor   = frogFactFor;
+window.frogCatalogId = frogCatalogId;
+
 const Store = {
   HISTORY_KEY:  'efrog_history',
   FEEDBACK_KEY: 'efrog_feedback_mode',

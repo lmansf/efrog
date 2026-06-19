@@ -359,6 +359,7 @@ const RecordPage = (function () {
 
   // ── Loading Indicator ─────────────────────────────────
   function showLoadingOverlay() {
+    document.getElementById('top-loader')?.classList.add('active');
     const loader = document.createElement('div');
     loader.id        = 'analyze-overlay';
     loader.className = 'analyze-loader';
@@ -376,6 +377,7 @@ const RecordPage = (function () {
   }
 
   function hideLoadingOverlay() {
+    document.getElementById('top-loader')?.classList.remove('active');
     const loader = document.getElementById('analyze-overlay');
     if (!loader) return Promise.resolve();
     loader.classList.add('loader-exiting');
@@ -748,12 +750,14 @@ const RecordPage = (function () {
     return h;
   }
 
-  // Placeholder trading-card for a confident match. Same info shown today
-  // (species name + confidence); the 🐸 art slot is ready to swap for real art.
+  // Placeholder trading-card for a confident match. The 🐸 art slot, identifier,
+  // and frog fact are placeholders ready to swap for real per-species content.
   function cardHtml(species, prob, i) {
     const name = formatSpecies(species);
     const pct  = (prob * 100).toFixed(0);
     const hue  = hueOf(species);
+    const id   = window.frogCatalogId?.(species) ?? '';
+    const fact = window.frogFactFor?.(species) ?? '';
     return `
       <div class="tcg-card" style="--i:${i}; --card-hue:${hue};">
         <button class="tcg-card-close" aria-label="Dismiss card">&times;</button>
@@ -764,9 +768,18 @@ const RecordPage = (function () {
             <span class="tcg-card-conf">${pct}%</span>
           </div>
           <div class="tcg-card-art"><span class="tcg-card-frog">🐸</span></div>
+          <div class="tcg-card-info">
+            <div class="tcg-card-field">
+              <span class="tcg-card-label">Identifier</span>
+              <span class="tcg-card-value">${escHtml(id)}</span>
+            </div>
+            <div class="tcg-card-field">
+              <span class="tcg-card-label">Frog Fact</span>
+              <span class="tcg-card-value tcg-card-fact">${escHtml(fact)}</span>
+            </div>
+          </div>
           <div class="tcg-card-footer">
             <span>eFrog · Florida</span>
-            <span class="tcg-card-rarity">Confident ID</span>
           </div>
         </div>
       </div>

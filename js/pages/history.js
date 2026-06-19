@@ -197,9 +197,18 @@ const HistoryPage = (function () {
                 ${conf ? `<span class="tcg-card-conf">${conf}</span>` : ''}
               </div>
               <div class="tcg-card-art"><div class="tcg-card-sprite">${frogSprite(species)}</div></div>
+              <div class="tcg-card-info">
+                <div class="tcg-card-field">
+                  <span class="tcg-card-label">Identifier</span>
+                  <span class="tcg-card-value">${esc(window.frogCatalogId?.(species) ?? '')}</span>
+                </div>
+                <div class="tcg-card-field">
+                  <span class="tcg-card-label">Frog Fact</span>
+                  <span class="tcg-card-value tcg-card-fact">${esc(window.frogFactFor?.(species) ?? '')}</span>
+                </div>
+              </div>
               <div class="tcg-card-footer">
                 <span>eFrog · Florida</span>
-                <span class="tcg-card-rarity">${conf ? 'Confident ID' : 'Observation'}</span>
               </div>
             </div>
           </div>

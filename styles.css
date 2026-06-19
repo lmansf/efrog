@@ -67,6 +67,36 @@ body {
   height: var(--header-h);
 }
 
+/* Subtle indeterminate loading line along the bottom of the top banner */
+.top-loader {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity .25s var(--ease-out);
+  pointer-events: none;
+}
+.top-loader.active { opacity: 1; }
+.top-loader span {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 40%;
+  left: -40%;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: topLoad 1.15s ease-in-out infinite;
+}
+@keyframes topLoad {
+  0%   { left: -40%; }
+  100% { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .top-loader span { animation-duration: 2.2s; }
+}
+
 .nav {
   height: 100%;
   padding: 0 16px;
@@ -1209,21 +1239,31 @@ body {
 }
 
 /* ── Result cards (TCG pack opening) ────────────────────── */
+/* Horizontal carousel: multiple confident matches each get a card and you swipe
+   through them, snapping one at a time. A single card just centers. */
 .tcg-pack {
   display: flex;
-  flex-wrap: wrap;
   gap: 16px;
-  justify-content: center;
   margin-bottom: 22px;
+  padding: 4px 4px 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  justify-content: safe center;
   perspective: 1000px;
+  scrollbar-width: thin;
 }
+.tcg-pack::-webkit-scrollbar { height: 6px; }
+.tcg-pack::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
 
 .tcg-card {
   position: relative;
-  width: clamp(150px, 44vw, 196px);
-  aspect-ratio: 5 / 7;
-  border-radius: 14px;
-  padding: 4px;
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  width: clamp(230px, 84vw, 290px);
+  border-radius: 16px;
+  padding: 5px;
   background: linear-gradient(150deg,
     hsl(var(--card-hue), 58%, 64%),
     hsl(calc(var(--card-hue) + 40), 52%, 40%));
@@ -1235,13 +1275,12 @@ body {
 }
 
 .tcg-card-frame {
-  height: 100%;
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--surface);
   display: flex;
   flex-direction: column;
-  padding: 10px;
-  gap: 8px;
+  padding: 12px;
+  gap: 10px;
 }
 
 .tcg-card-header {
@@ -1252,23 +1291,23 @@ body {
 }
 .tcg-card-title {
   font-weight: 800;
-  font-size: .9rem;
+  font-size: 1.02rem;
   line-height: 1.15;
   letter-spacing: -.02em;
 }
 .tcg-card-conf {
   flex-shrink: 0;
-  font-size: .72rem;
+  font-size: .75rem;
   font-weight: 700;
   color: #fff;
   background: hsl(var(--card-hue), 45%, 44%);
   border-radius: 999px;
-  padding: 2px 8px;
+  padding: 2px 9px;
 }
 
 .tcg-card-art {
-  flex: 1;
-  border-radius: 8px;
+  aspect-ratio: 1;
+  border-radius: 9px;
   border: 1px solid var(--border);
   background: radial-gradient(circle at 50% 38%,
     hsl(var(--card-hue), 60%, 90%),
@@ -1279,9 +1318,39 @@ body {
   overflow: hidden;
 }
 .tcg-card-frog {
-  font-size: 3.4rem;
+  font-size: 4.6rem;
   filter: drop-shadow(0 4px 8px rgba(0,0,0,.25));
   animation: tcgBob 3s ease-in-out infinite;
+}
+
+/* Identifier + frog fact below the image */
+.tcg-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tcg-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.tcg-card-label {
+  font-size: .58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-light);
+}
+.tcg-card-value {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.tcg-card-fact {
+  font-weight: 500;
+  font-size: .78rem;
+  line-height: 1.35;
+  color: var(--text-muted);
 }
 
 .tcg-card-footer {
@@ -1293,7 +1362,6 @@ body {
   letter-spacing: .05em;
   color: var(--text-light);
 }
-.tcg-card-rarity { color: var(--success); font-weight: 700; }
 
 .tcg-card-close {
   position: absolute;
@@ -1330,7 +1398,7 @@ body {
 }
 
 @keyframes tcgIn {
-  0%   { opacity: 0; transform: translateY(48px) scale(.6) rotate(-7deg); }
+  0%   { opacity: 0; transform: translateY(30px) scale(.65) rotate(-6deg); }
   60%  { opacity: 1; }
   100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
 }
@@ -1348,7 +1416,7 @@ body {
 }
 @keyframes tcgOut {
   0%   { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
-  100% { opacity: 0; transform: translateY(-64px) scale(.7) rotate(8deg); }
+  100% { opacity: 0; transform: translateY(-30px) scale(.7) rotate(8deg); }
 }
 
 /* ── Low-confidence section ── */

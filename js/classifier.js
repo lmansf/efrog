@@ -81,6 +81,19 @@ const ready = (async () => {
   }
 })();
 
+// Base64-encode the raw little-endian bytes of a Float32Array. Used to ship the
+// observation's mel spectrogram to Supabase compactly; the Python post-training
+// pipeline decodes it with np.frombuffer(b64decode(s), '<f4').reshape(64, 157).
+function _f32ToBase64(f32) {
+  const bytes = new Uint8Array(f32.buffer, f32.byteOffset, f32.byteLength);
+  let bin = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
 // ── Audio → 16 kHz mono Float32 (mirrors ffmpeg -ac 1 -ar 16000 in the server) ──
 async function _decodeTo16kMono(blob) {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -263,6 +276,10 @@ window.Classifier = {
       species:       _labels[bestIdx],
       confidence:    probs[bestIdx],
       probabilities,
+      // Exact model input (log-mel dB, shape [nMels, nFrames] row-major), base64
+      // float32 — stored with the observation so it can train the RL model later.
+      mel:           _f32ToBase64(data),
+      melShape:      [nMels, nFrames],
     };
   },
 };

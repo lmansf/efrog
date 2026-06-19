@@ -27,15 +27,19 @@ function _init() {
       // created_at stored as ISO string — avoids Arrow BigInt serialization issues
       await _conn.query(`
         CREATE TABLE IF NOT EXISTS observations (
-          id            VARCHAR PRIMARY KEY,
-          created_at    VARCHAR,
-          type          VARCHAR,
-          name          VARCHAR,
-          duration      DOUBLE,
-          species       VARCHAR,
-          confidence    DOUBLE,
-          probabilities VARCHAR,
-          is_holo       BOOLEAN DEFAULT false
+          id                VARCHAR PRIMARY KEY,
+          created_at        VARCHAR,
+          type              VARCHAR,
+          name              VARCHAR,
+          duration          DOUBLE,
+          species           VARCHAR,
+          confidence        DOUBLE,
+          probabilities     VARCHAR,
+          is_holo           BOOLEAN DEFAULT false,
+          mel_spectrogram   VARCHAR,
+          included_feedback BOOLEAN DEFAULT false,
+          feedback          BOOLEAN,
+          species_name      VARCHAR
         )
       `);
 
@@ -254,6 +258,31 @@ window.DB = {
   // Send one observation straight to Supabase as it happens (works anonymously,
   // RLS-governed). merge=true so a later server sync / re-send is idempotent.
   async sendObservation(row) {
+    return _sbInsert('observations', row, { merge: true });
+  },
+
+  // Append the user's verdict to an existing observation. Upsert by id so only
+  // the feedback columns change (the row was created at analysis time). Also
+  // best-effort updates the local DuckDB copy. Called the moment the user picks
+  // agree / dispute / not-now under a result card.
+  async updateObservationFeedback({ id, included_feedback, feedback, species_name }) {
+    const row = {
+      id:                String(id),
+      included_feedback: Boolean(included_feedback),
+      feedback:          feedback == null ? null : Boolean(feedback),
+      species_name:      species_name ?? null,
+    };
+    if (await _guard()) {
+      try {
+        const stmt = await _conn.prepare(
+          `UPDATE observations
+             SET included_feedback = ?, feedback = ?, species_name = ?
+           WHERE id = ?`
+        );
+        await stmt.query(row.included_feedback, row.feedback, row.species_name, row.id);
+        await stmt.close();
+      } catch { /* local copy is best-effort */ }
+    }
     return _sbInsert('observations', row, { merge: true });
   },
 

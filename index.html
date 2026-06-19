@@ -32,11 +32,11 @@
         <a href="#about" class="nav-link" data-page="about">About</a>
       </div>
       <button id="auth-btn" class="auth-btn" onclick="Auth?.toggle()">Sign in</button>
-      <button id="feedback-toggle" class="feedback-toggle" role="switch" aria-checked="false" aria-label="Feedback Mode" title="Feedback Mode">
-        <span class="toggle-text">Feedback</span>
-        <span class="toggle-track">
-          <span class="toggle-thumb"></span>
-        </span>
+      <button id="feedback-btn" class="feedback-btn" aria-haspopup="dialog" aria-label="Give feedback" title="Give feedback">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="feedback-btn-text">Feedback</span>
       </button>
     </nav>
     <div class="top-loader" id="top-loader" aria-hidden="true"><span></span></div>
@@ -84,6 +84,7 @@
   <script defer src="js/pages/about.js"></script>
   <script defer src="js/pages/record.js"></script>
   <script defer src="js/pages/history.js"></script>
+  <script defer src="js/feedback.js"></script>
   <script defer src="js/router.js"></script>
   <script defer src="js/app.js"></script>
   <script>

@@ -65,70 +65,18 @@ const RecordPage = (function () {
         <h2 class="panel-title">Result</h2>
         <div id="result-content" class="result-content"></div>
       </div>
-
-      <div id="feedback-panel" class="panel panel-feedback hidden">
-        <h2 class="panel-title">Give Feedback</h2>
-        <p class="panel-caption">This section is still in development, but you can scream into the void if you want to</p>
-
-        <div class="form-group">
-          <label class="form-label" for="fb-name">Name <span class="form-optional">(optional)</span></label>
-          <input type="text" id="fb-name" class="form-input" placeholder="Your name">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Accuracy Rating <span class="form-optional">How accurate was the ID?</span></label>
-          <div class="rating-wrap">
-            <span class="rating-min">0</span>
-            <input type="range" min="0" max="10" value="5" id="fb-accuracy" class="rating-slider">
-            <span class="rating-max">10</span>
-            <span class="rating-val" id="fb-accuracy-val">5</span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Site / Interface Rating <span class="form-optional">How's the experience?</span></label>
-          <div class="rating-wrap">
-            <span class="rating-min">0</span>
-            <input type="range" min="0" max="10" value="5" id="fb-site" class="rating-slider">
-            <span class="rating-max">10</span>
-            <span class="rating-val" id="fb-site-val">5</span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Are you a member of FrogWatch?</label>
-          <div class="frogwatch-opts">
-            <button class="btn frogwatch-opt" data-val="yes">Yes</button>
-            <button class="btn frogwatch-opt" data-val="no">No</button>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="fb-note">Feedback &amp; Suggestions <span class="form-optional">(optional)</span></label>
-          <textarea id="fb-note" class="feedback-note" placeholder="Tell us what you think…"></textarea>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="fb-email">Email <span class="form-optional">(optional — only if you'd like us to follow up or feature you)</span></label>
-          <input type="email" id="fb-email" class="form-input" placeholder="you@example.com" autocomplete="email">
-        </div>
-
-        <div class="form-group">
-          <div class="feedback-public-row">
-            <label class="feedback-public-label">
-              <input type="checkbox" id="fb-make-public" class="feedback-public-check">
-              Make Public
-            </label>
-            <span class="feedback-public-caption">You're invited to make yourself eligible for feature on our website. As feedback is implemented, some will be selected to celebrate</span>
-          </div>
-        </div>
-
-        <div class="feedback-row">
-          <button id="submit-feedback" class="btn btn-secondary">Submit</button>
-          <button id="skip-feedback" class="btn btn-ghost btn-sm">Skip</button>
-        </div>
-      </div>
     `;
+  }
+
+  // The 19 model classes, used to build the "dispute" dropdown. Pulled from the
+  // loaded classifier when available so it always matches the model's output.
+  function speciesOptions(selected) {
+    const labels = (window.Classifier?.labels && window.Classifier.labels.length)
+      ? window.Classifier.labels
+      : Object.keys(selected || {});
+    return labels.slice().sort((a, b) => a.localeCompare(b))
+      .map(sp => `<option value="${escHtml(sp)}">${escHtml(formatSpecies(sp))}</option>`)
+      .join('');
   }
 
   // ── Init ──────────────────────────────────────────────
@@ -139,7 +87,6 @@ const RecordPage = (function () {
     currentDuration = null;
     isRecording = false; recordSeconds = 0;
 
-    removeFeedbackArrow();
     prewarm();
     setupUpload();
     document.getElementById('record-btn').addEventListener('click', () =>
@@ -147,22 +94,6 @@ const RecordPage = (function () {
     );
     document.getElementById('clear-audio').addEventListener('click', clearAudio);
     document.getElementById('analyze-btn').addEventListener('click', runAnalysis);
-    document.getElementById('fb-accuracy').addEventListener('input', e =>
-      (document.getElementById('fb-accuracy-val').textContent = e.target.value)
-    );
-    document.getElementById('fb-site').addEventListener('input', e =>
-      (document.getElementById('fb-site-val').textContent = e.target.value)
-    );
-    document.querySelectorAll('.frogwatch-opt').forEach(btn =>
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-      })
-    );
-    document.getElementById('submit-feedback').addEventListener('click', submitFeedback);
-    document.getElementById('skip-feedback').addEventListener('click', () =>
-      document.getElementById('feedback-panel').classList.add('hidden')
-    );
   }
 
   // ── Server pre-warming ────────────────────────────────
@@ -183,8 +114,6 @@ const RecordPage = (function () {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) prewarm();
   });
-  // The arrow is attached to <body>, so clear it when the user leaves the page
-  window.addEventListener('hashchange', () => removeFeedbackArrow());
 
   // ── Upload ────────────────────────────────────────────
   function setupUpload() {
@@ -339,18 +268,16 @@ const RecordPage = (function () {
     if (fnEl) fnEl.textContent = name;
     previewEl.classList.remove('hidden');
     document.getElementById('result-panel').classList.add('hidden');
-    document.getElementById('feedback-panel').classList.add('hidden');
     currentEntryId = null;
   }
 
   function clearAudio() {
-    removeFeedbackArrow();
     const player = document.getElementById('audio-player');
     if (player) player.src = '';
     const videoPlayer = document.getElementById('video-player');
     if (videoPlayer) { videoPlayer.src = ''; videoPlayer.classList.add('hidden'); }
     if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = null; }
-    ['audio-preview', 'result-panel', 'feedback-panel'].forEach(id =>
+    ['audio-preview', 'result-panel'].forEach(id =>
       document.getElementById(id)?.classList.add('hidden')
     );
     audioBlob = null; currentFile = null; currentFileName = null; currentEntryId = null;
@@ -457,7 +384,6 @@ const RecordPage = (function () {
     const analyzeBtn = document.getElementById('analyze-btn');
     analyzeBtn.disabled = true;
 
-    removeFeedbackArrow();
     showLoadingOverlay();
 
     let apiResult = null;
@@ -509,6 +435,11 @@ const RecordPage = (function () {
       currentSpecies    = apiResult.species;
       currentConfidence = apiResult.confidence;
 
+      // Let the header feedback modal link itself to this analysis.
+      window.__efrogLastObs = {
+        id: entry.id, species: apiResult.species, confidence: apiResult.confidence,
+      };
+
       window.DB?.insertObservation({
         id:            entry.id,
         type:          audioBlob ? 'recording' : 'upload',
@@ -538,18 +469,22 @@ const RecordPage = (function () {
         let userId = '';
         try { userId = (await window.Auth?.getUser())?.sub ?? ''; } catch {}
         window.DB?.sendObservation({
-          id:            String(entry.id),
-          user_id:       userId,
-          contact_id:    window.DB?.getContactId() ?? '',
-          username:      '',
-          created_at:    entry.timestamp,
-          type:          entry.type,
-          name:          entry.name,
-          duration:      currentDuration != null ? Number(currentDuration) : null,
-          species:       apiResult.species,
-          confidence:    apiResult.confidence,
-          probabilities: JSON.stringify(apiResult.probabilities ?? {}),
-          is_holo:       isHolo,
+          id:                String(entry.id),
+          user_id:           userId,
+          contact_id:        window.DB?.getContactId() ?? '',
+          username:          '',
+          created_at:        entry.timestamp,
+          type:              entry.type,
+          name:              entry.name,
+          duration:          currentDuration != null ? Number(currentDuration) : null,
+          species:           apiResult.species,
+          confidence:        apiResult.confidence,
+          probabilities:     JSON.stringify(apiResult.probabilities ?? {}),
+          is_holo:           isHolo,
+          mel_spectrogram:   apiResult.mel ?? '',
+          included_feedback: false,
+          feedback:          null,
+          species_name:      null,
         }).catch(() => {});
       })();
 
@@ -581,7 +516,7 @@ const RecordPage = (function () {
           </div>
         </div>` : '';
 
-      resultContent.innerHTML = cardsHtml + lowHtml;
+      resultContent.innerHTML = cardsHtml + lowHtml + obsFeedbackHtml(apiResult);
 
       // Animate low-confidence bars in after DOM paint
       requestAnimationFrame(() => {
@@ -600,6 +535,8 @@ const RecordPage = (function () {
           card.addEventListener('animationend', () => card.remove(), { once: true });
         });
       });
+
+      wireObsFeedback(resultContent, entry.id, apiResult.species);
     }
 
     analyzeBtn.disabled    = false;
@@ -607,120 +544,91 @@ const RecordPage = (function () {
 
     // Results front and center before anything else
     resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    if (!apiError) {
-      const feedbackPanel = document.getElementById('feedback-panel');
-      if (feedbackPanel) {
-        // Reset form values so re-analysis gets a fresh form
-        const acc  = feedbackPanel.querySelector('#fb-accuracy');
-        const site = feedbackPanel.querySelector('#fb-site');
-        if (feedbackPanel.querySelector('#fb-name'))      feedbackPanel.querySelector('#fb-name').value = '';
-        if (acc)  { acc.value  = 5; feedbackPanel.querySelector('#fb-accuracy-val').textContent = '5'; }
-        if (site) { site.value = 5; feedbackPanel.querySelector('#fb-site-val').textContent = '5'; }
-        if (feedbackPanel.querySelector('#fb-note'))      feedbackPanel.querySelector('#fb-note').value = '';
-        if (feedbackPanel.querySelector('#fb-email'))     feedbackPanel.querySelector('#fb-email').value = '';
-        if (feedbackPanel.querySelector('#fb-make-public')) feedbackPanel.querySelector('#fb-make-public').checked = false;
-        feedbackPanel.querySelectorAll('.frogwatch-opt').forEach(b => b.classList.remove('selected'));
-        if (Store.getFeedbackMode()) {
-          // Reveal the form below, but stay on the results — the arrow offers
-          // the way down instead of yanking the scroll position.
-          feedbackPanel.classList.remove('hidden');
-          showFeedbackArrow();
-        }
-      }
-    }
   }
 
-  // ── Feedback ──────────────────────────────────────────
-  async function submitFeedback() {
-    const submitBtn      = document.getElementById('submit-feedback');
-    const name           = (document.getElementById('fb-name')?.value || '').trim();
-    const email          = (document.getElementById('fb-email')?.value || '').trim();
-    const accuracyRating = parseInt(document.getElementById('fb-accuracy')?.value ?? '5', 10);
-    const siteRating     = parseInt(document.getElementById('fb-site')?.value ?? '5', 10);
-    const frogwatchEl    = document.querySelector('.frogwatch-opt.selected');
-    const frogwatch      = frogwatchEl?.dataset.val ?? '';
-    const note           = (document.getElementById('fb-note')?.value || '').trim();
-
-    let userId = null;
-    try { userId = (await Auth?.getUser())?.sub ?? null; } catch {}
-
-    const contactId  = window.DB?.getContactId() ?? '';
-    const makePublic = document.getElementById('fb-make-public')?.checked ?? false;
-
-    // Local copy for this device's history (best-effort)
-    window.DB?.insertFeedback({
-      observationId: currentEntryId, userId, contactId, name,
-      accuracyRating, siteRating, frogwatch, note,
-      species: currentSpecies, confidence: currentConfidence,
-      userAgent: navigator.userAgent, makePublic,
-    }).catch(() => {});
-
-    // The actual collection: write straight to Supabase (works anonymously)
-    const row = {
-      id:              crypto.randomUUID(),
-      observation_id:  String(currentEntryId ?? ''),
-      created_at:      new Date().toISOString(),
-      user_id:         userId ?? '',
-      contact_id:      contactId,
-      name,
-      email,
-      accuracy_rating: accuracyRating,
-      site_rating:     siteRating,
-      frogwatch,
-      note,
-      species:         currentSpecies ?? '',
-      confidence:      currentConfidence,
-      user_agent:      navigator.userAgent,
-      make_public:     makePublic,
-    };
-
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
-    try {
-      await window.DB.sendFeedback(row);
-      // If they left an email, attach it to their contact record too
-      if (email) {
-        window.DB.sendContact({
-          id: contactId, email, username: name, updated_at: row.created_at,
-        }).catch(() => {});
-      }
-      document.getElementById('feedback-panel')?.classList.add('hidden');
-      _showToast('Feedback submitted — thank you!');
-    } catch (err) {
-      console.error('[feedback] submit failed:', err);
-      _showToast('Could not submit feedback — please try again.');
-    } finally {
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
-    }
-  }
-
-  // ── "Go to Feedback" arrow ────────────────────────────
-  // After an analysis the page centers on the results; if feedback mode is on,
-  // this quiet pill points down to the feedback form and pops away when tapped.
-  function showFeedbackArrow() {
-    removeFeedbackArrow();
-    const btn = document.createElement('button');
-    btn.id = 'feedback-arrow';
-    btn.className = 'feedback-arrow';
-    btn.setAttribute('aria-label', 'Scroll to the feedback form');
-    btn.innerHTML = `
-      <span class="feedback-arrow-caption">Go to Feedback</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="6 9 12 15 18 9"/>
-      </svg>
+  // ── Per-observation feedback (agree / dispute / not now) ──────────────
+  // Sits under the result cards. The moment the user picks an option it's
+  // written to the observation row in Supabase — agree confirms the model's
+  // ID, dispute records the species they pick instead, not-now opts out.
+  function obsFeedbackHtml(apiResult) {
+    return `
+      <div class="obs-feedback" id="obs-feedback">
+        <p class="obs-feedback-q">Was this identification right?</p>
+        <div class="obs-feedback-opts">
+          <button type="button" class="obs-fb-btn obs-fb-agree" data-fb="agree">
+            <span aria-hidden="true">👍</span> Agree
+          </button>
+          <button type="button" class="obs-fb-btn obs-fb-dispute" data-fb="dispute">
+            <span aria-hidden="true">✏️</span> Dispute
+          </button>
+          <button type="button" class="obs-fb-btn obs-fb-skip" data-fb="none">Not now</button>
+        </div>
+        <div class="obs-feedback-dispute hidden">
+          <label class="obs-feedback-label" for="obs-fb-species">Which species was it?</label>
+          <select id="obs-fb-species" class="obs-feedback-select">
+            <option value="">Select a species…</option>
+            ${speciesOptions(apiResult.probabilities)}
+          </select>
+        </div>
+        <p class="obs-feedback-done hidden" role="status"></p>
+      </div>
     `;
-    btn.addEventListener('click', () => {
-      document.getElementById('feedback-panel')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      btn.classList.add('feedback-arrow-exit');
-      btn.addEventListener('animationend', () => btn.remove(), { once: true });
-    }, { once: true });
-    document.body.appendChild(btn);
   }
 
-  function removeFeedbackArrow() {
-    document.getElementById('feedback-arrow')?.remove();
+  function wireObsFeedback(root, entryId, predictedSpecies) {
+    const wrap = root.querySelector('#obs-feedback');
+    if (!wrap) return;
+    const opts     = wrap.querySelector('.obs-feedback-opts');
+    const disputeUI = wrap.querySelector('.obs-feedback-dispute');
+    const select   = wrap.querySelector('#obs-fb-species');
+    const done     = wrap.querySelector('.obs-feedback-done');
+
+    function finish(verdictText) {
+      opts?.classList.add('hidden');
+      disputeUI?.classList.add('hidden');
+      if (done) { done.textContent = verdictText; done.classList.remove('hidden'); }
+    }
+
+    function save({ included, feedback, speciesName }) {
+      window.DB?.updateObservationFeedback({
+        id: entryId,
+        included_feedback: included,
+        feedback,
+        species_name: speciesName,
+      }).catch(() => {});
+      // Mirror onto local history so the Collection shows a correct/incorrect badge
+      if (included) {
+        Store.updateEntry(entryId, {
+          feedback: { verdict: feedback ? 'correct' : 'incorrect', species_name: speciesName },
+        });
+      }
+    }
+
+    wrap.querySelectorAll('.obs-fb-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const kind = btn.dataset.fb;
+        if (kind === 'agree') {
+          save({ included: true, feedback: true, speciesName: predictedSpecies });
+          finish('Thanks — glad we got it right!');
+        } else if (kind === 'dispute') {
+          wrap.querySelectorAll('.obs-fb-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          disputeUI?.classList.remove('hidden');
+          select?.focus();
+        } else { // none
+          save({ included: false, feedback: null, speciesName: null });
+          finish('No problem — maybe next time.');
+        }
+      });
+    });
+
+    // Dispute: append as soon as a species is chosen from the dropdown.
+    select?.addEventListener('change', () => {
+      const sp = select.value;
+      if (!sp) return;
+      save({ included: true, feedback: false, speciesName: sp });
+      finish(`Thanks — logged as ${formatSpecies(sp)}.`);
+    });
   }
 
   // ── Helpers ───────────────────────────────────────────
@@ -750,8 +658,8 @@ const RecordPage = (function () {
     return h;
   }
 
-  // Placeholder trading-card for a confident match. The 🐸 art slot, identifier,
-  // and frog fact are placeholders ready to swap for real per-species content.
+  // Trading-card for a confident match. The 🐸 art slot is still a placeholder;
+  // the frog fact is real per-species content (see store.js).
   function cardHtml(species, prob, i) {
     const name = formatSpecies(species);
     const pct  = (prob * 100).toFixed(0);

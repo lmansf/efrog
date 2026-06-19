@@ -141,57 +141,33 @@ body {
 .auth-btn.auth-signed-in { color: var(--primary); border-color: var(--primary-dim); }
 .auth-btn.auth-signed-in:hover { border-color: var(--primary); }
 
-/* ── Feedback Toggle ───────────────────────────────────── */
-.feedback-toggle {
-  display: flex;
+/* ── Feedback button (opens the feedback modal) ─────────── */
+.feedback-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 0;
-  border: none;
-  background: none;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
   cursor: pointer;
   font-family: inherit;
   font-size: .8rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-muted);
   -webkit-tap-highlight-color: transparent;
-  min-height: 44px;
-  transition: color .2s var(--ease-out);
+  min-height: 38px;
+  transition: color .2s var(--ease-out), border-color .2s var(--ease-out), background .2s var(--ease-out);
 }
 
-.feedback-toggle:hover { color: var(--text); }
+.feedback-btn:hover { color: var(--text); border-color: var(--text-light); }
+.feedback-btn:active { transform: translateY(1px); }
+.feedback-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.feedback-btn svg { flex-shrink: 0; }
 
-.toggle-text { font-size: .8rem; }
-
-.toggle-track {
-  position: relative;
-  width: 44px;
-  height: 26px;
-  border-radius: 999px;
-  background: var(--border);
-  transition: background .28s var(--ease-out);
-  flex-shrink: 0;
-}
-
-.toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 1px 4px rgba(0,0,0,.22), 0 0 0 0.5px rgba(0,0,0,.05);
-  transition: transform .28s var(--ease-spring);
-}
-
-.feedback-toggle.active .toggle-track  { background: var(--warning); }
-.feedback-toggle.active .toggle-thumb  { transform: translateX(18px); }
-.feedback-toggle:active .toggle-track  { opacity: .85; }
-
-.feedback-toggle:focus-visible .toggle-track {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
+@media (max-width: 420px) {
+  .feedback-btn-text { display: none; }
+  .feedback-btn { padding: 8px; }
 }
 
 /* ── Bottom Nav ────────────────────────────────────────── */
@@ -824,6 +800,149 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .frog-sprite-wrap.frog-jump .frog-sprite { animation: none; }
   .card-modal, .card-modal-body { transition: none; }
+}
+
+/* ── Feedback modal (header button) ── */
+.fb-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(16px, 5vh, 56px) 16px;
+  overflow-y: auto;
+  opacity: 0;
+  transition: opacity .25s var(--ease-out);
+}
+.fb-modal.open { opacity: 1; }
+.fb-modal.closing { opacity: 0; }
+
+.fb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 15, 8, .55);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.fb-modal-body {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 460px;
+  margin: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 22px 22px 20px;
+  transform: scale(.94) translateY(10px);
+  transition: transform .3s var(--ease-spring);
+}
+.fb-modal.open .fb-modal-body { transform: scale(1) translateY(0); }
+
+.fb-modal-title { font-size: 1.2rem; font-weight: 700; margin: 0 0 4px; }
+.fb-modal-caption { font-size: .88rem; color: var(--text-muted); margin: 0 0 18px; }
+
+.fb-modal-x {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.fb-modal-x:hover { background: var(--border); color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-modal, .fb-modal-body { transition: none; }
+}
+
+/* ── Per-observation feedback (under result cards) ── */
+.obs-feedback {
+  margin-top: 6px;
+  padding: 16px;
+  border: 1.5px solid color-mix(in srgb, var(--primary) 26%, var(--border));
+  border-radius: var(--radius-sm);
+  background: var(--primary-light);
+}
+.obs-feedback-q {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 12px;
+  text-align: center;
+}
+.obs-feedback-opts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.obs-fb-btn {
+  flex: 1 1 0;
+  min-width: 90px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s, transform .1s;
+}
+.obs-fb-btn:hover { border-color: var(--text-light); }
+.obs-fb-btn:active { transform: translateY(1px); }
+.obs-fb-agree:hover   { border-color: var(--success); color: var(--success); }
+.obs-fb-dispute:hover { border-color: var(--warning); }
+.obs-fb-btn.selected {
+  border-color: var(--warning);
+  background: var(--warning-light);
+}
+.obs-fb-skip { flex: 0 0 auto; min-width: 0; color: var(--text-muted); font-weight: 500; }
+
+.obs-feedback-dispute {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.obs-feedback-label { font-size: .82rem; font-weight: 600; color: var(--text-muted); }
+.obs-feedback-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: .9rem;
+  cursor: pointer;
+}
+.obs-feedback-select:focus {
+  outline: none;
+  border-color: var(--warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 18%, transparent);
+}
+.obs-feedback-done {
+  margin: 0;
+  text-align: center;
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--success);
 }
 
 .feedback-chip {

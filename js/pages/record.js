@@ -70,13 +70,16 @@ const RecordPage = (function () {
 
   // The 19 model classes, used to build the "dispute" dropdown. Pulled from the
   // loaded classifier when available so it always matches the model's output.
+  // Also includes "No Frogs Present" as the first option (value: empty string).
   function speciesOptions(selected) {
     const labels = (window.Classifier?.labels && window.Classifier.labels.length)
       ? window.Classifier.labels
       : Object.keys(selected || {});
-    return labels.slice().sort((a, b) => a.localeCompare(b))
+    const noFrogs = '<option value="">No Frogs Present</option>';
+    const species = labels.slice().sort((a, b) => a.localeCompare(b))
       .map(sp => `<option value="${escHtml(sp)}">${escHtml(formatSpecies(sp))}</option>`)
       .join('');
+    return noFrogs + species;
   }
 
   // ── Init ──────────────────────────────────────────────
@@ -566,7 +569,6 @@ const RecordPage = (function () {
         <div class="obs-feedback-dispute hidden">
           <label class="obs-feedback-label" for="obs-fb-species">Which species was it?</label>
           <select id="obs-fb-species" class="obs-feedback-select">
-            <option value="">Select a species…</option>
             ${speciesOptions(apiResult.probabilities)}
           </select>
         </div>
@@ -623,11 +625,13 @@ const RecordPage = (function () {
     });
 
     // Dispute: append as soon as a species is chosen from the dropdown.
+    // Empty string value = "No Frogs Present" (sets species_name to null).
     select?.addEventListener('change', () => {
       const sp = select.value;
-      if (!sp) return;
-      save({ included: true, feedback: false, speciesName: sp });
-      finish(`Thanks — logged as ${formatSpecies(sp)}.`);
+      const speciesName = sp === '' ? null : sp;
+      const msg = sp ? `Thanks — logged as ${formatSpecies(sp)}.` : 'Thanks — logged as no frogs present.';
+      save({ included: true, feedback: false, speciesName });
+      finish(msg);
     });
   }
 

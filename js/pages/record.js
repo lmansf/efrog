@@ -528,6 +528,29 @@ const RecordPage = (function () {
         } catch {}
       }).catch(() => {});
 
+      // Record every observation straight to Supabase as it happens (anonymous
+      // included), mirroring the feedback/contacts path. Best-effort: a failure
+      // never blocks the result. Carries the stable contact id and, if signed in,
+      // the Auth0 user id so logged-in retrieval can find it.
+      (async () => {
+        let userId = '';
+        try { userId = (await window.Auth?.getUser())?.sub ?? ''; } catch {}
+        window.DB?.sendObservation({
+          id:            String(entry.id),
+          user_id:       userId,
+          contact_id:    window.DB?.getContactId() ?? '',
+          username:      '',
+          created_at:    entry.timestamp,
+          type:          entry.type,
+          name:          entry.name,
+          duration:      currentDuration != null ? Number(currentDuration) : null,
+          species:       apiResult.species,
+          confidence:    apiResult.confidence,
+          probabilities: JSON.stringify(apiResult.probabilities ?? {}),
+          is_holo:       isHolo,
+        }).catch(() => {});
+      })();
+
       const THRESHOLD = 0.90;
       const sorted    = Object.entries(apiResult.probabilities).sort(([, a], [, b]) => b - a);
       const confident = sorted.filter(([, p]) => p >= THRESHOLD);

@@ -295,11 +295,12 @@ def sync_data():
                 for obs in observations:
                     cur.execute(f"""
                         INSERT INTO \"{_SB_SCHEMA}\".observations
-                          (id, user_id, username, created_at, type, name, duration, species, confidence, probabilities)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                          (id, user_id, contact_id, username, created_at, type, name, duration, species, confidence, probabilities, is_holo)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO NOTHING
                     """, [
                         obs.get('id'), user_id,
+                        obs.get('contact_id', ''),
                         obs.get('username', ''),
                         obs.get('created_at', ''), obs.get('type', ''),
                         obs.get('name', ''),
@@ -307,6 +308,7 @@ def sync_data():
                         obs.get('species', ''),
                         float(obs.get('confidence') or 0),
                         _json.dumps(obs.get('probabilities') or {}),
+                        bool(obs.get('is_holo', False)),
                     ])
                 for fb in feedback:
                     cur.execute(f"""
@@ -366,7 +368,7 @@ def get_observations():
         with _supabase_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(f"""
-                    SELECT id, created_at, type, name, duration, species, confidence, probabilities
+                    SELECT id, created_at, type, name, duration, species, confidence, probabilities, is_holo
                     FROM \"{_SB_SCHEMA}\".observations
                     WHERE user_id = %s
                     ORDER BY created_at DESC

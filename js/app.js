@@ -4,6 +4,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const screen = document.getElementById('boot-screen');
     if (!screen) return;
 
+    // Subtle top-banner line shows the app is still loading
+    document.getElementById('top-loader')?.classList.add('active');
+
     // Minimum visible time — starts counting from page load
     const minWait = new Promise(resolve => setTimeout(resolve, 1800));
 
@@ -11,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_BASE = _local ? 'http://localhost:5000' : EFROG_API_URL;
 
     function dismiss() {
+      document.getElementById('top-loader')?.classList.remove('active');
       screen.classList.add('boot-exit');
       screen.addEventListener('animationend', () => {
         screen.remove();

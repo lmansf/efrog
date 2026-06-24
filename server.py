@@ -404,16 +404,23 @@ def get_leaderboard():
         with _supabase_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(f"""
-                    WITH user_stats AS (
-                        SELECT
-                            user_id,
-                            MAX(username) AS username,
-                            COUNT(DISTINCT NULLIF(species, '')) AS unique_species,
-                            COUNT(*) AS total_observations
+                    WITH latest_usernames AS (
+                        SELECT DISTINCT ON (user_id) user_id, username
                         FROM \"{_SB_SCHEMA}\".observations
                         WHERE user_id IS NOT NULL AND user_id != ''
                           AND username IS NOT NULL AND username != ''
-                        GROUP BY user_id
+                        ORDER BY user_id, created_at DESC
+                    ),
+                    user_stats AS (
+                        SELECT
+                            o.user_id,
+                            lu.username,
+                            COUNT(DISTINCT NULLIF(o.species, '')) AS unique_species,
+                            COUNT(*) AS total_observations
+                        FROM \"{_SB_SCHEMA}\".observations o
+                        JOIN latest_usernames lu ON lu.user_id = o.user_id
+                        WHERE o.user_id IS NOT NULL AND o.user_id != ''
+                        GROUP BY o.user_id, lu.username
                     )
                     SELECT
                         username,

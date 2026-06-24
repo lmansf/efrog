@@ -113,9 +113,12 @@ const GemRoomPage = (function () {
 
   function renderError(err) {
     const isNetwork = err instanceof TypeError && err.message.toLowerCase().includes('fetch');
+    const isParse = err instanceof SyntaxError;
     const msg = isNetwork
       ? 'The server may be waking up — try again in a moment.'
-      : `Could not load leaderboard: ${esc(err.message)}`;
+      : isParse
+        ? 'The server returned an unexpected response — it may be waking up. Try again in a moment.'
+        : `Could not load leaderboard: ${esc(err.message)}`;
     return `
       <div class="empty-state">
         <div class="empty-icon">🌿</div>

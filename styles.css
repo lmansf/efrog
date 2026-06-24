@@ -1897,6 +1897,167 @@ body {
   .feedback-options .btn { flex: none; }
 }
 
+/* ── Gem Room Page ─────────────────────────────────────── */
+.gem-room-desc {
+  font-size: .875rem;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.gem-room-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.gem-room-spinner {
+  display: flex;
+  gap: 7px;
+}
+
+.gem-room-spinner span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-dim);
+  animation: bootDot 1.2s ease-in-out infinite;
+}
+
+.gem-room-spinner span:nth-child(2) { animation-delay: .18s; }
+.gem-room-spinner span:nth-child(3) { animation-delay: .36s; }
+
+.gem-room-podium {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.gem-room-top-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.gem-room-rank-1 {
+  border-color: #c9a227;
+  background: linear-gradient(135deg, var(--surface) 55%, #fdf8e6);
+  box-shadow: 0 2px 12px rgba(201,162,39,.14), var(--shadow);
+}
+
+.gem-room-rank-2 {
+  border-color: #9ca4ae;
+  background: linear-gradient(135deg, var(--surface) 55%, #f4f5f7);
+}
+
+.gem-room-rank-3 {
+  border-color: #b47332;
+  background: linear-gradient(135deg, var(--surface) 55%, #fdf2e8);
+}
+
+.gem-room-medal {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.gem-room-top-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gem-room-top-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.gem-room-top-name {
+  font-weight: 600;
+  font-size: .95rem;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gem-room-top-score {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gem-room-top-stats {
+  font-size: .75rem;
+  color: var(--text-muted);
+}
+
+.gem-room-table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.gem-room-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .875rem;
+}
+
+.gem-room-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.gem-room-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.gem-room-table tr:last-child td {
+  border-bottom: none;
+}
+
+.gem-room-col-rank {
+  color: var(--text-muted);
+  font-size: .82rem;
+  font-weight: 500;
+  width: 40px;
+}
+
+.gem-room-col-name {
+  font-weight: 600;
+}
+
+.gem-room-col-score {
+  color: var(--primary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* ── Very small phones (< 360px) ───────────────────────── */
 @media (max-width: 359px) {
   .main { padding-left: 12px; padding-right: 12px; }

@@ -15,7 +15,7 @@ const AboutPage = {
           <li>Go to <strong>Analyze</strong> and drop in an audio file or record directly from your microphone.</li>
           <li>Click <strong>Analyze</strong> to run the audio through the model.</li>
           <li>View the classification result. If Feedback Mode is on, rate its accuracy.</li>
-          <li>Revisit all past analyses on the <strong>History</strong> page.</li>
+          <li>Revisit all past analyses on the <strong>Gem Room</strong> page.</li>
         </ol>
       </div>
 

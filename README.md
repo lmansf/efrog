@@ -18,6 +18,12 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 > `file://` won't work for local inference because browsers block `fetch` of the model over that protocol — use a static server (above) or deploy to Vercel.
 
+## Sign-in prompt
+
+On first visit, a dismissible modal invites users to sign in so their observations are saved to their account and accessible across devices. The prompt appears after the boot screen clears and is completely optional — users can dismiss it or click **Continue without signing in**.
+
+The dismissed (or signed-in) state is stored in `localStorage` under the key `efrog_signin_prompt_dismissed`, so the prompt never reappears. The prompt is silently skipped if `AUTH0_DOMAIN` / `AUTH0_CLIENT_ID` are not set in `js/config.js`, or if the user is already authenticated on load.
+
 ## Optional: Python API
 
 `server.py` provides the same classifier over HTTP, plus the Auth0 / Databricks endpoints used for sign-in and history sync. Set `EFROG_LOCAL_INFERENCE = false` to route classification through it instead.

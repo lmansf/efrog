@@ -1,8 +1,9 @@
 const Router = {
   pages: {
-    record:  RecordPage,
-    history: HistoryPage,
-    about:   AboutPage,
+    record:   RecordPage,
+    history:  HistoryPage,
+    gemroom:  GemRoomPage,
+    about:    AboutPage,
   },
   default: 'record',
 

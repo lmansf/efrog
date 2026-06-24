@@ -388,6 +388,58 @@ def get_observations():
     return jsonify({'observations': rows})
 
 
+# ── /leaderboard ─────────────────────────────────────────────────────────────
+# Public aggregate endpoint — no auth required. Returns per-user gem scores:
+#   gem_score = unique_species × total_observations × 10
+# Only users who have synced (non-empty user_id and username) appear.
+@app.route('/leaderboard', methods=['GET', 'OPTIONS'])
+def get_leaderboard():
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    if not _SB_DB_URL:
+        return jsonify({'leaderboard': []})
+
+    try:
+        with _supabase_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    WITH latest_usernames AS (
+                        SELECT DISTINCT ON (user_id) user_id, username
+                        FROM \"{_SB_SCHEMA}\".observations
+                        WHERE user_id IS NOT NULL AND user_id != ''
+                          AND username IS NOT NULL AND username != ''
+                        ORDER BY user_id, created_at DESC
+                    ),
+                    user_stats AS (
+                        SELECT
+                            o.user_id,
+                            lu.username,
+                            COUNT(DISTINCT NULLIF(o.species, '')) AS unique_species,
+                            COUNT(*) AS total_observations
+                        FROM \"{_SB_SCHEMA}\".observations o
+                        JOIN latest_usernames lu ON lu.user_id = o.user_id
+                        WHERE o.user_id IS NOT NULL AND o.user_id != ''
+                        GROUP BY o.user_id, lu.username
+                    )
+                    SELECT
+                        username,
+                        unique_species::int AS unique_species,
+                        total_observations::int AS total_observations,
+                        (unique_species * total_observations * 10)::int AS gem_score
+                    FROM user_stats
+                    WHERE unique_species > 0
+                    ORDER BY gem_score DESC, unique_species DESC, total_observations DESC
+                    LIMIT 100
+                """)
+                cols = [d[0] for d in cur.description]
+                rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({'leaderboard': rows})
+
+
 # ── /contact ──────────────────────────────────────────────────────────────────
 @app.route('/contact', methods=['POST', 'OPTIONS'])
 def upsert_anonymous_contact():

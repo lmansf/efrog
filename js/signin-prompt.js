@@ -10,7 +10,10 @@ const STORAGE_KEY = 'efrog_signin_prompt_dismissed';
     return !localStorage.getItem(STORAGE_KEY);
   }
 
+  let _onKey = null;
+
   function dismiss() {
+    if (_onKey) { document.removeEventListener('keydown', _onKey); _onKey = null; }
     localStorage.setItem(STORAGE_KEY, '1');
     const modal = document.getElementById('signin-prompt-modal');
     if (!modal) return;
@@ -58,8 +61,8 @@ const STORAGE_KEY = 'efrog_signin_prompt_dismissed';
       await window.Auth?.login();
     });
 
-    const onKey = e => { if (e.key === 'Escape') { dismiss(); document.removeEventListener('keydown', onKey); } };
-    document.addEventListener('keydown', onKey);
+    _onKey = e => { if (e.key === 'Escape') dismiss(); };
+    document.addEventListener('keydown', _onKey);
   }
 
   // Show after the boot screen is gone. We watch for the boot-screen element
@@ -78,9 +81,10 @@ const STORAGE_KEY = 'efrog_signin_prompt_dismissed';
 
   document.addEventListener('DOMContentLoaded', async () => {
     if (!shouldShow()) return;
+    if (!window.AUTH0_DOMAIN || !window.AUTH0_CLIENT_ID) return;
 
     // Skip if the user is already authenticated.
-    const authed = await window.Auth?.isAuthenticated().catch(() => false);
+    const authed = await window.Auth?.isAuthenticated()?.catch(() => false);
     if (authed) {
       localStorage.setItem(STORAGE_KEY, '1');
       return;

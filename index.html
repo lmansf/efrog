@@ -28,8 +28,8 @@
       <a href="#record" class="nav-brand">efrog</a>
       <div class="nav-links">
         <a href="#record" class="nav-link" data-page="record">Analyze</a>
-        <a href="#history" class="nav-link" data-page="history">Collection</a>
         <a href="#gemroom" class="nav-link" data-page="gemroom">Gem Room</a>
+        <a href="#leaderboard" class="nav-link" data-page="leaderboard">Leaderboard</a>
         <a href="#about" class="nav-link" data-page="about">About</a>
       </div>
       <button id="auth-btn" class="auth-btn" onclick="Auth?.toggle()">Sign in</button>
@@ -55,13 +55,6 @@
       </svg>
       <span>Analyze</span>
     </a>
-    <a href="#history" class="bottom-nav-link" data-page="history">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <polyline points="12 6 12 12 16 14"/>
-      </svg>
-      <span>Collection</span>
-    </a>
     <a href="#gemroom" class="bottom-nav-link" data-page="gemroom">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M6 3h12l4 6-10 13L2 9 6 3z"/>
@@ -69,6 +62,13 @@
         <path d="M6 3l3 6M18 3l-3 6M2 9l4.5 6M22 9l-4.5 6"/>
       </svg>
       <span>Gems</span>
+    </a>
+    <a href="#leaderboard" class="bottom-nav-link" data-page="leaderboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <span>Leaderboard</span>
     </a>
     <a href="#about" class="bottom-nav-link" data-page="about">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -95,6 +95,7 @@
   <script defer src="js/pages/history.js"></script>
   <script defer src="js/pages/gemroom.js"></script>
   <script defer src="js/feedback.js"></script>
+  <script defer src="js/signin-prompt.js"></script>
   <script defer src="js/router.js"></script>
   <script defer src="js/app.js"></script>
   <script>

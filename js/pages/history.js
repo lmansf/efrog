@@ -43,7 +43,7 @@ const HistoryPage = (function () {
     const entries = Store.getHistory();
     return `
       <div class="page-header">
-        <h1 class="page-title" style="margin-bottom:0">Collection</h1>
+        <h1 class="page-title" style="margin-bottom:0">Gem Room</h1>
         ${entries.length > 0
           ? '<button id="clear-history" class="btn btn-ghost btn-sm">Clear all</button>'
           : ''}
@@ -56,9 +56,9 @@ const HistoryPage = (function () {
     return `
       <div class="empty-state">
         <div class="empty-icon">🎙️</div>
-        <p class="empty-title">Your collection is empty</p>
+        <p class="empty-title">Your Gem Room is empty</p>
         <p class="empty-desc">
-          Head to <a href="#record">Analyze</a> to identify your first frog and start your collection.
+          Head to <a href="#record">Analyze</a> to identify your first frog and start your Gem Room.
         </p>
       </div>
     `;
@@ -270,7 +270,7 @@ const HistoryPage = (function () {
     const clearBtn = document.getElementById('clear-history');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
-        if (confirm('Clear your whole collection? This cannot be undone.')) {
+        if (confirm('Clear your whole Gem Room? This cannot be undone.')) {
           Store.clearHistory();
           Router.navigate();
         }

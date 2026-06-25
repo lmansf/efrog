@@ -22,4 +22,4 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 ## Leaderboard / Gem Room
 
 - `/leaderboard` (GET, no auth required) is a public aggregate endpoint on the Flask server. Formula: `unique_species × total_observations × 10`. Only users with `user_id` and `username` set appear (requires Auth0 sign-in + sync).
-- Page lives at `#gemroom`, module `GemRoomPage` in `js/pages/gemroom.js`.
+- Page lives at `#leaderboard`, module `GemRoomPage` in `js/pages/gemroom.js`.

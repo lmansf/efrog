@@ -62,12 +62,13 @@ final class AudioCapture: ObservableObject {
     }
 
     /// Stop recording and return the captured audio, padded/truncated to 80 000 samples.
+    @MainActor
     func stopRecording() async -> [Float] {
         // Remove tap first so no more callbacks arrive, then stop the engine.
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
 
-        await MainActor.run { isRecording = false }
+        isRecording = false
 
         lock.lock()
         var result = _samples

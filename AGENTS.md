@@ -21,13 +21,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Leaderboard / Gem Room
 
-- `/leaderboard` (GET, no auth required) is a public aggregate endpoint on the Flask server. Formula: `unique_species × total_observations × 10`. Only users with `user_id` and `username` set appear (requires Auth0 sign-in + sync).
-- Page lives at `#gemroom`, module `GemRoomPage` in `js/pages/gemroom.js`.
-
-## iOS App (`ios/`)
-
-- Swift Package (`ios/Package.swift`) targeting iOS 16+; open the `ios/` directory in Xcode (auto-detects SPM).
-- Three SPM dependencies: ONNX Runtime (`OrtSwift` product, ≥ 1.20.0), Auth0.swift (≥ 2.0), supabase-swift (≥ 2.0).
-- Model I/O: input `[1, 1, 64, 157]` Float32 (batch, channel, mel-bins=64, frames=157); output `[1, 19]` raw logits. Sigmoid applied in `FrogClassifier.swift`.
-- `FrogClassifier.swift` uses the ORT ObjC/Swift API: `ORTEnv`, `ORTSession`, `ORTValue`. Import is `import OnnxRuntime`; adjust if Xcode resolves the `OrtSwift` product under a different module name.
-- Resource files `frog_classifier.onnx` and `labels.json` must be copied from repo root into `ios/eFrog/Resources/` before building (they are gitignored / placeholder in the repo). See `ios/README.md`.
+- The leaderboard page (`js/pages/gemroom.js`, route `#leaderboard`) fetches scores via `supabase.rpc('get_leaderboard')` directly from the browser — no Flask server involved, no Render cold-start delay.
+- Formula: `unique_species × total_observations × 10`. Only users with `user_id` and `username` set appear (requires Auth0 sign-in + sync).
+- The `get_leaderboard()` Postgres function must be created once in the Supabase SQL editor by running `supabase_leaderboard.sql` (at repo root). It uses `SECURITY DEFINER` to read `observations` (which has no anon SELECT policy) and returns only aggregated scores.
+- The Flask `/leaderboard` endpoint in `server.py` remains as a fallback but is no longer used by the frontend.

@@ -26,7 +26,7 @@ The dismissed (or signed-in) state is stored in `localStorage` under the key `ef
 
 ## Optional: Python API
 
-`server.py` provides the same classifier over HTTP, plus the Auth0 / Databricks endpoints used for sign-in and history sync, and the public `/leaderboard` endpoint that powers the Leaderboard (`#leaderboard`) — a ranked list of users by gem score (unique species × total observations × 10). Set `EFROG_LOCAL_INFERENCE = false` to route classification through it instead.
+`server.py` provides the same classifier over HTTP, plus the Auth0 / Databricks endpoints used for sign-in and history sync. Set `EFROG_LOCAL_INFERENCE = false` to route classification through it instead. (The Leaderboard at `#leaderboard` fetches scores directly from Supabase via `get_leaderboard()` RPC — not through this server.)
 
 ```bash
 pip install -r requirements.txt

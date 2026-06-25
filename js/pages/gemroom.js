@@ -22,21 +22,29 @@ const GemRoomPage = (function () {
     `;
   }
 
+  let _sbClient = null;
+  function _getClient() {
+    if (!_sbClient) {
+      _sbClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    }
+    return _sbClient;
+  }
+
   async function init() {
     const container = document.getElementById('gem-room-content');
     if (!container) return;
 
     try {
-      const res = await fetch(`${EFROG_API_URL}/leaderboard`);
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const { leaderboard } = await res.json();
+      const { data, error } = await _getClient().rpc('get_leaderboard');
+      if (error) throw new Error(error.message);
+      const leaderboard = (data ?? []).map(row => ({ ...row, total_observations: row.total_obs }));
       container.className = '';
-      container.innerHTML = leaderboard && leaderboard.length > 0
+      container.innerHTML = leaderboard.length > 0
         ? renderBoard(leaderboard)
         : renderEmpty();
-    } catch (err) {
+    } catch {
       container.className = '';
-      container.innerHTML = renderError(err);
+      container.innerHTML = renderError();
     }
   }
 
@@ -111,19 +119,12 @@ const GemRoomPage = (function () {
     `;
   }
 
-  function renderError(err) {
-    const isNetwork = err instanceof TypeError && err.message.toLowerCase().includes('fetch');
-    const isParse = err instanceof SyntaxError;
-    const msg = isNetwork
-      ? 'The server may be waking up — try again in a moment.'
-      : isParse
-        ? 'The server returned an unexpected response — it may be waking up. Try again in a moment.'
-        : `Could not load leaderboard: ${esc(err.message)}`;
+  function renderError() {
     return `
       <div class="empty-state">
         <div class="empty-icon">🌿</div>
         <p class="empty-title">Leaderboard unavailable</p>
-        <p class="empty-desc">${msg}</p>
+        <p class="empty-desc">Could not load leaderboard. Please try again.</p>
         <button class="btn btn-ghost btn-sm" style="margin-top:12px"
                 onclick="Router.navigate()">Retry</button>
       </div>

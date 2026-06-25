@@ -1,6 +1,6 @@
 # efrog
 
-Browser-based frog call classifier. Upload or record audio and the app identifies the species using a machine-learning model.
+Frog call classifier — runs in the browser and on iOS. Upload or record audio and the app identifies the species using a machine-learning model.
 
 ## How classification works
 
@@ -74,3 +74,9 @@ cp ../efrog-training/artifacts/frog_classifier.onnx ./frog_classifier.onnx
 ```
 
 No code changes are needed when the species list changes — labels travel inside the model file.
+
+---
+
+## iOS app
+
+A native SwiftUI app (`ios/`) runs the same classifier on-device using ONNX Runtime Mobile. See **[ios/README.md](ios/README.md)** for setup instructions (Xcode 15+, copy model file, configure signing).

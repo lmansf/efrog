@@ -76,7 +76,7 @@ final class AudioCapture: ObservableObject {
         isRecording = false
 
         lock.lock()
-        var result = _samples
+        let result = _samples
         lock.unlock()
 
         return Self.padOrTruncate(result, to: Self.targetSampleCount)

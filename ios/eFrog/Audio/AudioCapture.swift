@@ -28,8 +28,13 @@ final class AudioCapture: ObservableObject {
     // ── Recording control ─────────────────────────────────────────────────────
 
     /// Start capturing from the microphone.  Clears any previously recorded data.
-    /// Call on the main thread; tap callback runs on the audio thread.
+    /// Tap callback runs on the audio thread.
+    @MainActor
     func startRecording() throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .default, options: [])
+        try session.setActive(true)
+
         lock.lock(); _samples = []; lock.unlock()
 
         let inputNode   = engine.inputNode

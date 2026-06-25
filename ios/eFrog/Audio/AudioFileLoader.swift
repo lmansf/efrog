@@ -27,9 +27,6 @@ struct AudioFileLoader {
             interleaved: false
         ) else { throw AudioFileLoaderError.badTargetFormat }
 
-        guard let converter = AVAudioConverter(from: sourceFormat, to: targetFormat)
-        else { throw AudioFileLoaderError.noConverter }
-
         // Only read as many source frames as needed to produce 80 000 output samples,
         // avoiding full allocation for very long files.
         let neededSourceFrames = AVAudioFrameCount(
@@ -41,12 +38,19 @@ struct AudioFileLoader {
         else { throw AudioFileLoaderError.bufferAlloc }
         try file.read(into: sourceBuf, frameCount: sourceCapacity)
 
+        // AVAudioConverter returns nil when channel counts differ, so fold multi-channel
+        // audio to mono manually before the resampling step.
+        let monoBuf = sourceFormat.channelCount == 1 ? sourceBuf : try foldToMono(sourceBuf)
+
         // Output capacity: slightly over-allocate to absorb rounding in the resampler.
         let outCapacity = AVAudioFrameCount(
-            ceil(Double(sourceBuf.frameLength) * Self.targetSampleRate / sourceFormat.sampleRate)
+            ceil(Double(monoBuf.frameLength) * Self.targetSampleRate / monoBuf.format.sampleRate)
         ) + 1
         guard let outBuf = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: outCapacity)
         else { throw AudioFileLoaderError.bufferAlloc }
+
+        guard let converter = AVAudioConverter(from: monoBuf.format, to: targetFormat)
+        else { throw AudioFileLoaderError.noConverter }
 
         var inputConsumed = false
         var convError: NSError?
@@ -57,7 +61,7 @@ struct AudioFileLoader {
             }
             inputConsumed = true
             status.pointee = .haveData
-            return sourceBuf
+            return monoBuf
         }
         if let err = convError { throw err }
 
@@ -71,6 +75,33 @@ struct AudioFileLoader {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private func foldToMono(_ sourceBuf: AVAudioPCMBuffer) throws -> AVAudioPCMBuffer {
+        let sourceFormat = sourceBuf.format
+        let channelCount = Int(sourceFormat.channelCount)
+        let frameCount   = Int(sourceBuf.frameLength)
+
+        guard let monoFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: sourceFormat.sampleRate,
+            channels: 1,
+            interleaved: false
+        ) else { throw AudioFileLoaderError.badTargetFormat }
+
+        guard let monoBuf  = AVAudioPCMBuffer(pcmFormat: monoFormat, frameCapacity: AVAudioFrameCount(frameCount)),
+              let monoData  = monoBuf.floatChannelData?[0],
+              let sourceData = sourceBuf.floatChannelData
+        else { throw AudioFileLoaderError.bufferAlloc }
+
+        monoBuf.frameLength = AVAudioFrameCount(frameCount)
+        let scale = 1.0 / Float(channelCount)
+        for i in 0..<frameCount {
+            var sum: Float = 0
+            for ch in 0..<channelCount { sum += sourceData[ch][i] }
+            monoData[i] = sum * scale
+        }
+        return monoBuf
+    }
 
     private static func padOrTruncate(_ samples: [Float], to target: Int) -> [Float] {
         if samples.count == target { return samples }

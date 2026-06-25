@@ -53,7 +53,7 @@ final class AudioCapture: ObservableObject {
         }
 
         try engine.start()
-        DispatchQueue.main.async { self.isRecording = true }
+        isRecording = true
     }
 
     /// Stop recording and return the captured audio, padded/truncated to 80 000 samples.
@@ -62,7 +62,7 @@ final class AudioCapture: ObservableObject {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
 
-        DispatchQueue.main.async { self.isRecording = false }
+        await MainActor.run { isRecording = false }
 
         lock.lock()
         var result = _samples

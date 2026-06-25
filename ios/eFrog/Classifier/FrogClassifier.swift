@@ -76,8 +76,8 @@ final class FrogClassifier {
 
         let inputTensor = try ORTValue(tensorData: tensorData, elementType: .float, shape: shape)
 
-        let inputName = session.inputNames.first ?? "input"
-        let outputName = session.outputNames.first ?? "output"
+        let inputName = (try session.inputNames()).first ?? "input"
+        let outputName = (try session.outputNames()).first ?? "output"
 
         let outputs = try session.run(
             withInputs: [inputName: inputTensor],

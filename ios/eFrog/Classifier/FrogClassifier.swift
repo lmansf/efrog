@@ -60,6 +60,9 @@ final class FrogClassifier {
     /// - Parameter melSpectrogram: 64 × T Float array (mel-bins × time-frames), row-major.
     ///   Produced by the audio pipeline; expected shape matches the model's training input.
     /// - Returns: All species results sorted by confidence descending (rank 1 = best match).
+    /// - Throws: `ClassifierError.invalidInput` if the spectrogram shape is wrong;
+    ///   `ClassifierError.inferenceFailure` if the model output class count doesn't match
+    ///   `labels.json` (i.e. `frog_classifier.onnx` and `labels.json` are from different training runs).
     func classify(melSpectrogram: [[Float]]) async throws -> [ClassifierResult] {
         guard melSpectrogram.count == 64 else {
             throw ClassifierError.invalidInput("Expected 64 mel bins, got \(melSpectrogram.count)")

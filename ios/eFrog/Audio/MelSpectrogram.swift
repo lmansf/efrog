@@ -255,7 +255,7 @@ final class MelSpectrogram {
         vDSP_vsmsa(logMel, 1, &scale, &negRefDB, &mel, 1, vDSP_Length(total))
 
         // Clamp to floor using vDSP_vthres (max(mel[i], floor))
-        vDSP_vthres(mel, 1, &floorDB, &mel, 1, vDSP_Length(total))
+        vDSP_vthrsc(mel, 1, &floorDB, &mel, 1, vDSP_Length(total))
 
         // Guard against any remaining NaN/inf (matches js nan_to_num)
         for i in 0..<total where !mel[i].isFinite { mel[i] = floorDB }

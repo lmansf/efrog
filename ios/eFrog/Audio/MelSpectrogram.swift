@@ -238,7 +238,7 @@ final class MelSpectrogram {
         //   clip to -80
         //
         let refDB    = 10 * log10(max(Self.amin, maxMel))
-        let floorDB  = -Self.topDB
+        var floorDB  = -Self.topDB
 
         // Clamp power values to amin before log
         let total    = mel.count

@@ -57,6 +57,9 @@ Select a simulator or connected device and press **⌘R**.
 |------|---------|
 | `App/eFrogApp.swift` | `@main` SwiftUI entry point |
 | `App/ContentView.swift` | Root `TabView` (Analyze / Gem Room / About) |
+| `Audio/AudioCapture.swift` | Microphone capture → 16 kHz mono Float32 (80 000 samples) |
+| `Audio/AudioFileLoader.swift` | File loader → 16 kHz mono Float32 (80 000 samples) |
+| `Audio/MelSpectrogram.swift` | vDSP log-mel spectrogram matching `js/melspectrogram.js` |
 | `Classifier/FrogClassifier.swift` | ORT session wrapper — loads model, runs inference |
 | `Classifier/ClassifierResult.swift` | Result value type |
 | `Data/Observation.swift` | Shared `Codable` model covering all Supabase columns + local `audioPath`/`synced` fields |
@@ -72,7 +75,7 @@ Select a simulator or connected device and press **⌘R**.
 | Input | `[1, 1, 64, 157]` | Float32 | batch=1, channel=1, mel-bins=64, frames=157 |
 | Output | `[1, 19]` | Float32 | Raw logits → sigmoid → per-class probability |
 
-The classifier expects a 64 × T log-mel spectrogram (T ≈ 157 for a 5-second clip at 16 kHz / 512 hop). Sigmoid is applied to each logit inside `FrogClassifier.classify()`.
+The classifier expects a 64 × T log-mel spectrogram (T ≈ 157 for a 5-second clip at 16 kHz / 512 hop). `MelSpectrogram.swift` produces this from the 80 000-sample PCM buffers returned by `AudioCapture` or `AudioFileLoader`. Sigmoid is applied to each logit inside `FrogClassifier.classify()`.
 
 > **Important:** `frog_classifier.onnx` and `labels.json` must come from the same training run. If the model output class count doesn't match the label count, `classify()` throws `ClassifierError.inferenceFailure` rather than silently returning partial results.
 

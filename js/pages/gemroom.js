@@ -119,19 +119,12 @@ const GemRoomPage = (function () {
     `;
   }
 
-  function renderError(err) {
-    const isNetwork = err instanceof TypeError && err.message.toLowerCase().includes('fetch');
-    const isParse = err instanceof SyntaxError;
-    const msg = isNetwork
-      ? 'The server may be waking up — try again in a moment.'
-      : isParse
-        ? 'The server returned an unexpected response — it may be waking up. Try again in a moment.'
-        : `Could not load leaderboard: ${esc(err.message)}`;
+  function renderError() {
     return `
       <div class="empty-state">
         <div class="empty-icon">🌿</div>
         <p class="empty-title">Leaderboard unavailable</p>
-        <p class="empty-desc">${msg}</p>
+        <p class="empty-desc">Could not load leaderboard. Please try again.</p>
         <button class="btn btn-ghost btn-sm" style="margin-top:12px"
                 onclick="Router.navigate()">Retry</button>
       </div>

@@ -57,7 +57,12 @@ final class AudioCapture: ObservableObject {
             self?.processTap(buf)
         }
 
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            inputNode.removeTap(onBus: 0)
+            throw error
+        }
         isRecording = true
     }
 

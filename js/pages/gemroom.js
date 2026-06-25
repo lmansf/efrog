@@ -42,9 +42,9 @@ const GemRoomPage = (function () {
       container.innerHTML = leaderboard.length > 0
         ? renderBoard(leaderboard)
         : renderEmpty();
-    } catch (err) {
+    } catch {
       container.className = '';
-      container.innerHTML = renderError(err);
+      container.innerHTML = renderError();
     }
   }
 

@@ -71,6 +71,8 @@ Select a simulator or connected device and press **⌘R**.
 
 The classifier expects a 64 × T log-mel spectrogram (T ≈ 157 for a 5-second clip at 16 kHz / 512 hop). Sigmoid is applied to each logit inside `FrogClassifier.classify()`.
 
+> **Important:** `frog_classifier.onnx` and `labels.json` must come from the same training run. If the model output class count doesn't match the label count, `classify()` throws `ClassifierError.inferenceFailure` rather than silently returning partial results.
+
 ## SPM Dependencies
 
 | Package | Product | Version |

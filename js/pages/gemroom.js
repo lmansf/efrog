@@ -22,16 +22,24 @@ const GemRoomPage = (function () {
     `;
   }
 
+  let _sbClient = null;
+  function _getClient() {
+    if (!_sbClient) {
+      _sbClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    }
+    return _sbClient;
+  }
+
   async function init() {
     const container = document.getElementById('gem-room-content');
     if (!container) return;
 
     try {
-      const res = await fetch(`${EFROG_API_URL}/leaderboard`);
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      const { leaderboard } = await res.json();
+      const { data, error } = await _getClient().rpc('get_leaderboard');
+      if (error) throw new Error(error.message);
+      const leaderboard = (data ?? []).map(row => ({ ...row, total_observations: row.total_obs }));
       container.className = '';
-      container.innerHTML = leaderboard && leaderboard.length > 0
+      container.innerHTML = leaderboard.length > 0
         ? renderBoard(leaderboard)
         : renderEmpty();
     } catch (err) {

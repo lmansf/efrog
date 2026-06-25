@@ -11,6 +11,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Local DuckDB-WASM is used for in-session storage (`js/db.js`). Browser → Supabase writes go directly (anon RLS policies). Browser → server reads use the Flask API (`server.py`, hosted on Render).
 - Supabase schema is `"Version_1"`. **No anon SELECT policy** on `observations` — reads must go through the Flask server which uses `SUPABASE_DB_URL` (service role) via `psycopg2`.
 
+## iOS Auth Module
+
+- Auth files live in `ios/eFrog/Auth/`: `AuthManager.swift` (ObservableObject wrapping Auth0.swift SDK), `UserProfile.swift`, `Auth0.plist` (SDK reads this for domain/clientId automatically).
+- Auth0.swift `CredentialsManager` stores tokens in Keychain. `getAccessToken()` is the mobile equivalent of `getTokenSilently()` in `js/auth.js`.
+- `logout()` wraps local cleanup in `defer` so Keychain and published state are always cleared even if `clearSession()` throws (network failure, user cancel).
+- Before Auth0.swift login will work: add callback URL `com.efrog.ios://dev-rbxcy3tqjhebw7aa.us.auth0.com/ios/com.efrog.ios/callback` to Auth0 dashboard, and add `com.efrog.ios` URL scheme in Xcode → Info → URL Types.
+
 ## Leaderboard / Gem Room
 
 - `/leaderboard` (GET, no auth required) is a public aggregate endpoint on the Flask server. Formula: `unique_species × total_observations × 10`. Only users with `user_id` and `username` set appear (requires Auth0 sign-in + sync).

@@ -9,7 +9,7 @@ const GemRoomPage = (function () {
 
   function render() {
     return `
-      <h1 class="page-title">Gem Room</h1>
+      <h1 class="page-title">Leaderboard</h1>
       <p class="gem-room-desc">
         Ranked by gem score — unique species × total observations × 10.
         Sign in and identify frogs to appear on the board.

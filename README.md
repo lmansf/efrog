@@ -20,7 +20,7 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 ## Optional: Python API
 
-`server.py` provides the same classifier over HTTP, plus the Auth0 / Databricks endpoints used for sign-in and history sync, and the public `/leaderboard` endpoint that powers the Gem Room (`#gemroom`) — a ranked list of users by gem score (unique species × total observations × 10). Set `EFROG_LOCAL_INFERENCE = false` to route classification through it instead.
+`server.py` provides the same classifier over HTTP, plus the Auth0 / Databricks endpoints used for sign-in and history sync, and the public `/leaderboard` endpoint that powers the Leaderboard (`#leaderboard`) — a ranked list of users by gem score (unique species × total observations × 10). Set `EFROG_LOCAL_INFERENCE = false` to route classification through it instead.
 
 ```bash
 pip install -r requirements.txt

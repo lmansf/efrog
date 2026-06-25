@@ -25,3 +25,25 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Formula: `unique_species × total_observations × 10`. Only users with `user_id` and `username` set appear (requires Auth0 sign-in + sync).
 - The `get_leaderboard()` Postgres function must be created once in the Supabase SQL editor by running `supabase_leaderboard.sql` (at repo root). It uses `SECURITY DEFINER` to read `observations` (which has no anon SELECT policy) and returns only aggregated scores.
 - The Flask `/leaderboard` endpoint in `server.py` remains as a fallback but is no longer used by the frontend.
+
+## iOS audio pipeline (`ios/eFrog/Audio/`)
+
+Three Swift files form the audio pipeline.  All target 16 kHz mono Float32, 80 000 samples (5 s).
+
+### MelSpectrogram.swift — parity notes (must match `js/melspectrogram.js`)
+- **Periodic Hann**: `w[n] = 0.5 - 0.5 * cos(2π*n / N)` — divisor is `N` (1024), **not** `N-1`.  vDSP's built-in window uses the symmetric form; we compute it by hand.
+- **Center padding**: pad 512 zeros on each side before STFT (`nFrames = 1 + len / hop`).
+- **Slaney mel scale** (htk=False): linear below 1 kHz (`fSp = 200/3`), log above (`logstep = ln(6.4)/27`).  Exact port from JS.
+- **Slaney L1 norm**: `enorm = 2 / (melPts[m+2] - melPts[m])`.
+- **power_to_db**: `ref = max(mel)`, `top_db = 80`, `amin = 1e-10`.  Uses `vvlog10f` for vectorised log10.
+- **vDSP FFT**: `vDSP_create_fftsetup(10, kFFTRadix2)` + `vDSP_fft_zrip` (log2N=10 for N=1024).  After `vDSP_zvmags`, DC (`realp[0]²`) and Nyquist (`imagp[0]²`) are fixed manually (both have zero mel weight, but we correct them for accuracy).
+- **Output shape**: `[[Float]]` with `[nMels=64][nFrames=157]`, values in dB ≈ `[-80, 0]`.
+
+### AudioCapture.swift
+- `AVAudioEngine` input tap → `AVAudioConverter` → 16 kHz mono Float32.
+- Thread safety: `NSLock` guards the sample accumulation buffer (tap runs on audio thread).
+- `stopRecording()` calls `removeTap` **before** `engine.stop()` to prevent in-flight callbacks.
+
+### AudioFileLoader.swift
+- `AVAudioFile` + `AVAudioConverter` → 16 kHz mono Float32.
+- Reads only as many source frames as needed for 80 000 output samples (avoids large-file allocation).

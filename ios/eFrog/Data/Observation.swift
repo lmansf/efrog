@@ -120,11 +120,15 @@ struct Observation: Identifiable, Codable, Equatable {
         synced          = (try? c.decodeIfPresent(Bool.self, forKey: .synced)) ?? false
 
         // Supabase stores created_at as an ISO 8601 text string.
-        if let raw = try c.decodeIfPresent(String.self, forKey: .timestamp) {
-            timestamp = ISO8601DateFormatter().date(from: raw) ?? Date()
-        } else {
-            timestamp = Date()
+        let rawTimestamp = try c.decode(String.self, forKey: .timestamp)
+        guard let parsed = ISO8601DateFormatter().date(from: rawTimestamp) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .timestamp,
+                in: c,
+                debugDescription: "Expected ISO 8601 date string, got '\(rawTimestamp)'"
+            )
         }
+        timestamp = parsed
 
         // probabilities is stored as a JSON string in Supabase (TEXT column).
         if let jsonString = try? c.decodeIfPresent(String.self, forKey: .probabilities),

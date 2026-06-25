@@ -59,7 +59,8 @@ final class SupabaseManager {
     /// - Parameters:
     ///   - id: The observation UUID.
     ///   - verdict: `"agree"` → feedback=true; `"dispute"` → feedback=false; anything else → feedback=nil.
-    func updateFeedback(id: String, verdict: String) async throws {
+    ///   - speciesName: User-confirmed species label; required for dispute-based training data.
+    func updateFeedback(id: String, verdict: String, speciesName: String? = nil) async throws {
         let feedbackValue: Bool?
         switch verdict {
         case "agree":    feedbackValue = true
@@ -70,7 +71,8 @@ final class SupabaseManager {
         let row = FeedbackUpdateRow(
             id: id,
             includedFeedback: true,
-            feedback: feedbackValue
+            feedback: feedbackValue,
+            speciesName: speciesName
         )
         try await client
             .schema(Constants.schema)
@@ -217,11 +219,13 @@ final class SupabaseManager {
         let id: String
         let includedFeedback: Bool
         let feedback: Bool?
+        let speciesName: String?
 
         enum CodingKeys: String, CodingKey {
             case id
             case includedFeedback = "included_feedback"
             case feedback
+            case speciesName      = "species_name"
         }
     }
 

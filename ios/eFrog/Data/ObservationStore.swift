@@ -15,6 +15,7 @@ import Foundation
 //   try store.save(observation)
 //   let all = try store.fetchAll()
 
+@MainActor
 final class ObservationStore {
 
     // MARK: - Singleton
@@ -80,8 +81,10 @@ final class ObservationStore {
     func deleteAll() throws {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: ObservationEntity.entityName)
         let delete = NSBatchDeleteRequest(fetchRequest: request)
-        try context.execute(delete)
-        try context.save()
+        delete.resultType = .resultTypeObjectIDs
+        let result = try context.execute(delete) as? NSBatchDeleteResult
+        let ids = result?.result as? [NSManagedObjectID] ?? []
+        NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSDeletedObjectsKey: ids], into: [context])
     }
 
     // MARK: - Private helpers

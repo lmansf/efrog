@@ -31,6 +31,7 @@ final class AuthManager: ObservableObject {
             Auth0
                 .webAuth()
                 .audience(audience)
+                .scope("openid profile email")
                 .start { result in
                     switch result {
                     case .success(let creds):
@@ -49,6 +50,11 @@ final class AuthManager: ObservableObject {
     }
 
     func logout() async throws {
+        defer {
+            _ = credentialsManager.clear()
+            isAuthenticated = false
+            userProfile = nil
+        }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             Auth0
                 .webAuth()
@@ -61,10 +67,6 @@ final class AuthManager: ObservableObject {
                     }
                 }
         }
-
-        _ = credentialsManager.clear()
-        isAuthenticated = false
-        userProfile = nil
     }
 
     /// Silent token refresh — equivalent to auth.js getToken() / getTokenSilently().

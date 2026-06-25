@@ -49,7 +49,7 @@ final class ObservationStore {
     /// Persist an observation locally. Overwrites any existing row with the same id.
     /// Mirrors Store.addEntry / Store.importEntries from js/store.js.
     func save(_ obs: Observation) throws {
-        let entity: ObservationEntity = fetchEntity(id: obs.id) ?? ObservationEntity(context: context)
+        let entity = fetchEntity(id: obs.id) ?? ObservationEntity(context: context)
         entity.id         = obs.id
         entity.species    = obs.species
         entity.confidence = obs.confidence

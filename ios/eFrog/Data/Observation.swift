@@ -95,7 +95,7 @@ struct Observation: Identifiable, Codable, Equatable {
         case includedFeedback = "included_feedback"
         case feedback
         case speciesName    = "species_name"
-        // Local-only — excluded from network encoding via custom encode(to:)
+        // Local-only — not sent to Supabase (SupabaseManager uses ObservationRow for network writes)
         case audioPath
         case synced
     }

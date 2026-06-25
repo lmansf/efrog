@@ -19,6 +19,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Auth0 credentials (domain + clientId) are identical to the web app's `js/config.js`. The iOS URL scheme is `com.efrog.ios`; callback URL must be added to the Auth0 dashboard alongside the existing web URLs.
 - `Auth0.plist` must be added to the Xcode target so it is included in the app bundle — Auth0.swift reads it automatically.
 
+## iOS Data Layer (`ios/eFrog/Data/`)
+
+- **`Observation.swift`** — shared model struct (all Supabase columns + local `audioPath`/`synced` fields). `timestamp` maps to Supabase `created_at` TEXT column (ISO 8601 string). `probabilities` is `[String: Double]?` in memory but encoded as a JSON string for Supabase.
+- **`SupabaseManager.swift`** — wraps `supabase-swift` client (add via SPM: `https://github.com/supabase/supabase-swift`). Schema `"Version_1"` specified per-query via `.schema("Version_1")`. `fetchObservations` uses `URLSession` + Auth0 JWT directly (not the Swift client) because Supabase has no anon SELECT policy — a RLS policy like `USING (user_id = auth.jwt()->>'sub')` must be added alongside configuring Supabase to accept Auth0 JWTs.
+- **`ObservationStore.swift`** — CoreData stack built programmatically (no `.xcdatamodeld` needed). Entity `ObservationEntity` has 7 fields (id, species, confidence, timestamp, audioPath, synced, userId) — a local-display subset of the full Observation; heavier fields (probabilities, melSpectrogram) only go to Supabase.
+- iOS uses Auth0.swift + `CredentialsManager` (tokens in Keychain). Auth0 JWT is passed as `Bearer` to both Flask and Supabase REST — no server-side changes needed for mobile clients.
+
 ## Leaderboard / Gem Room
 
 - The leaderboard page (`js/pages/gemroom.js`, route `#leaderboard`) fetches scores via `supabase.rpc('get_leaderboard')` directly from the browser — no Flask server involved, no Render cold-start delay.

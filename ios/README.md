@@ -59,6 +59,9 @@ Select a simulator or connected device and press **⌘R**.
 | `App/ContentView.swift` | Root `TabView` (Analyze / Gem Room / About) |
 | `Classifier/FrogClassifier.swift` | ORT session wrapper — loads model, runs inference |
 | `Classifier/ClassifierResult.swift` | Result value type |
+| `Data/Observation.swift` | Shared `Codable` model covering all Supabase columns + local `audioPath`/`synced` fields |
+| `Data/SupabaseManager.swift` | Singleton wrapping `supabase-swift`; upserts observations, updates feedback, inserts login events, fetches history |
+| `Data/ObservationStore.swift` | CoreData local history store (programmatic model — no `.xcdatamodeld` needed); 7-field subset for display |
 | `Resources/frog_classifier.onnx` | ONNX model (copy from repo root) |
 | `Resources/labels.json` | Species label list (copy from repo root) |
 

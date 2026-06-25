@@ -33,6 +33,12 @@ pip install -r requirements.txt
 python3 server.py   # wait for "Warm-up done — first inference is ready."
 ```
 
+## iOS app
+
+A SwiftUI native app lives under `ios/`. It uses ONNX Runtime Mobile for on-device frog call classification, Auth0.swift for authentication (mirroring the web flow), and supabase-swift for data sync.
+
+See [`ios/README.md`](ios/README.md) for Auth0 dashboard and Xcode setup.
+
 ---
 
 ### Custom model path

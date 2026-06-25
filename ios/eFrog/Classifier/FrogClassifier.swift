@@ -92,10 +92,15 @@ final class FrogClassifier {
         let rawData = try outputValue.tensorData() as Data
         let logits = rawData.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
 
-        let count = min(logits.count, labels.count)
-        var results: [ClassifierResult] = (0..<count).map { i in
+        guard logits.count == labels.count else {
+            throw ClassifierError.inferenceFailure(
+                "Model output \(logits.count) classes but labels.json has \(labels.count) — frog_classifier.onnx and labels.json are out of sync"
+            )
+        }
+
+        var results: [ClassifierResult] = logits.enumerated().map { i, logit in
             // Per-class sigmoid — matches server.py and classifier.js
-            let confidence = 1.0 / (1.0 + exp(-logits[i]))
+            let confidence = 1.0 / (1.0 + exp(-logit))
             return ClassifierResult(species: labels[i], confidence: confidence, rank: 0)
         }
 

@@ -80,6 +80,7 @@ const Feedback = (function () {
   function open() {
     if (_open) return;
     _open = true;
+    window.Telemetry?.track('feedback_opened');
     const tpl = document.createElement('div');
     tpl.innerHTML = formHtml();
     const modal = tpl.firstElementChild;
@@ -161,10 +162,16 @@ const Feedback = (function () {
       if (email) {
         window.DB.sendContact({ id: contactId, email, username: name, updated_at: row.created_at }).catch(() => {});
       }
+      window.Telemetry?.track('feedback_submitted', {
+        accuracy_rating: accuracyRating, site_rating: siteRating,
+        frogwatch: frogwatch || undefined,
+        has_note: Boolean(note), has_email: Boolean(email), make_public: makePublic,
+      });
       toast('Feedback submitted — thank you!');
       close();
     } catch (err) {
       console.error('[feedback] submit failed:', err);
+      window.Telemetry?.track('feedback_failed', { message: String(err?.message || err).slice(0, 200) });
       toast('Could not submit feedback — please try again.');
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
     }

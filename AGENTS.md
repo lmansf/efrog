@@ -19,6 +19,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - The `anon` role has INSERT only on `feedback`/`user_logins` and no table privileges at all on `observations`/`contacts`; nothing is SELECTable with the publishable key.
 - `get_leaderboard()` must live in `public` — `js/pages/gemroom.js` creates its client without the `Version_1` schema option.
 - Dashboard-only step SQL can't do: `Version_1` must be added to Data API "Exposed schemas", or every PostgREST call fails.
+- Telemetry: `js/telemetry.js` batches events into the `public.track()` RPC (also in `public` because `navigator.sendBeacon` can't send PostgREST profile headers; apikey rides as a query param on the beacon path). Tables `telemetry_sessions`/`telemetry_events` have RLS on and zero anon grants — writable only through `track()`. Event catalog + SQL cookbook: `TELEMETRY.md`. Feature code emits events via `window.Telemetry?.track(name, props)` — guard with `?.` since telemetry may be disabled (DNT/GPC/opt-out).
 
 ## iOS Auth
 

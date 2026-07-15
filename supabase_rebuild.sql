@@ -259,7 +259,226 @@ grant insert on "Version_1".user_logins to anon;
 grant all on all tables in schema "Version_1" to service_role;
 
 
--- ── 8. Leaderboard function ──────────────────────────────────────────────────
+-- ── 8. Telemetry ─────────────────────────────────────────────────────────────
+-- Product analytics: one row per app session (device/locale/context +
+-- engagement counters) and an append-only event stream (page views, the
+-- analyze funnel, verdicts, errors, performance timings). See TELEMETRY.md
+-- for the event catalog and a SQL query cookbook.
+--
+-- Both tables are completely inaccessible to anon — ingestion happens only
+-- through public.track() below, a SECURITY DEFINER function that validates,
+-- caps, dedupes, and server-stamps everything. It lives in public (not
+-- Version_1) so navigator.sendBeacon() can reach it: beacons cannot set the
+-- PostgREST schema-profile headers, and public is the default schema.
+
+create table if not exists "Version_1".telemetry_sessions (
+  id             text primary key,
+  contact_id     text,
+  user_id        text,
+  app            text,              -- 'web' | 'ios'
+  app_version    text,
+  started_at     text,
+  last_seen_at   text,
+  duration_ms    bigint,            -- wall-clock session length
+  engaged_ms     bigint,            -- tab-visible time only
+  page_views     integer,
+  timezone       text,              -- IANA zone, e.g. America/New_York — the "where"
+  language       text,
+  languages      text,
+  platform       text,
+  os             text,
+  browser        text,
+  device_type    text,              -- mobile | tablet | desktop
+  user_agent     text,
+  screen_w       integer,
+  screen_h       integer,
+  viewport_w     integer,
+  viewport_h     integer,
+  pixel_ratio    double precision,
+  touch          boolean,
+  connection     text,              -- effectiveType, e.g. 4g
+  referrer       text,
+  landing_page   text,
+  utm            text,              -- JSON of utm_* params, if any
+  standalone     boolean,           -- installed/PWA display mode
+  prefers_dark   boolean,
+  reduced_motion boolean,
+  hw_concurrency integer,
+  device_memory  double precision,
+  received_at    text default to_char(timezone('utc', now()), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+);
+
+create table if not exists "Version_1".telemetry_events (
+  id          text primary key,     -- client-generated for retry dedupe
+  session_id  text,
+  contact_id  text,
+  user_id     text,
+  app         text,
+  event       text,
+  page        text,
+  props       text,                 -- JSON payload
+  created_at  text,                 -- client clock
+  received_at text default to_char(timezone('utc', now()), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+);
+
+create index if not exists telemetry_events_session_idx    on "Version_1".telemetry_events (session_id);
+create index if not exists telemetry_events_event_time_idx on "Version_1".telemetry_events (event, received_at);
+create index if not exists telemetry_sessions_started_idx  on "Version_1".telemetry_sessions (started_at);
+create index if not exists telemetry_sessions_contact_idx  on "Version_1".telemetry_sessions (contact_id);
+
+-- RLS on, zero policies, zero anon grants: the tables are reachable only
+-- through public.track() (writes) and the postgres/service connection (reads).
+alter table "Version_1".telemetry_sessions enable row level security;
+alter table "Version_1".telemetry_events   enable row level security;
+
+-- Drop every existing overload of public.track so re-runs with a changed
+-- signature never leave an ambiguous overload behind (PostgREST cannot
+-- resolve overloaded RPCs).
+do $$
+declare f record;
+begin
+  for f in
+    select oid::regprocedure as sig
+    from pg_proc
+    where proname = 'track' and pronamespace = 'public'::regnamespace
+  loop
+    execute 'drop function ' || f.sig;
+  end loop;
+end $$;
+
+-- One ingestion endpoint for both clients: upserts the session row (context is
+-- set-once, counters are monotonic) and appends up to 100 events per call.
+-- Argument types are enforced by PostgREST before the call; text lengths are
+-- capped here. Event ids come from the client so a retried flush after a lost
+-- response cannot double-count (ON CONFLICT DO NOTHING).
+create or replace function public.track(
+  _sid            text,
+  _events         jsonb            default '[]'::jsonb,
+  _contact_id     text             default null,
+  _user_id        text             default null,
+  _app            text             default 'web',
+  _app_version    text             default null,
+  _started_at     text             default null,
+  _last_seen_at   text             default null,
+  _duration_ms    bigint           default null,
+  _engaged_ms     bigint           default null,
+  _page_views     integer          default null,
+  _timezone       text             default null,
+  _language       text             default null,
+  _languages      text             default null,
+  _platform       text             default null,
+  _os             text             default null,
+  _browser        text             default null,
+  _device_type    text             default null,
+  _user_agent     text             default null,
+  _screen_w       integer          default null,
+  _screen_h       integer          default null,
+  _viewport_w     integer          default null,
+  _viewport_h     integer          default null,
+  _pixel_ratio    double precision default null,
+  _touch          boolean          default null,
+  _connection     text             default null,
+  _referrer       text             default null,
+  _landing_page   text             default null,
+  _utm            text             default null,
+  _standalone     boolean          default null,
+  _prefers_dark   boolean          default null,
+  _reduced_motion boolean          default null,
+  _hw_concurrency integer          default null,
+  _device_memory  double precision default null
+)
+returns void
+language sql
+security definer
+set search_path = "Version_1", public
+as $$
+  insert into telemetry_sessions as ts
+    (id, contact_id, user_id, app, app_version, started_at, last_seen_at,
+     duration_ms, engaged_ms, page_views, timezone, language, languages,
+     platform, os, browser, device_type, user_agent, screen_w, screen_h,
+     viewport_w, viewport_h, pixel_ratio, touch, connection, referrer,
+     landing_page, utm, standalone, prefers_dark, reduced_motion,
+     hw_concurrency, device_memory)
+  values
+    (left(_sid, 64), left(_contact_id, 64), left(_user_id, 128),
+     left(coalesce(_app, 'web'), 16), left(_app_version, 32),
+     left(coalesce(_started_at, to_char(timezone('utc', now()), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')), 40),
+     left(coalesce(_last_seen_at, _started_at), 40),
+     _duration_ms, _engaged_ms, _page_views,
+     left(_timezone, 64), left(_language, 32), left(_languages, 128),
+     left(_platform, 64), left(_os, 32), left(_browser, 32),
+     left(_device_type, 16), left(_user_agent, 400),
+     _screen_w, _screen_h, _viewport_w, _viewport_h, _pixel_ratio, _touch,
+     left(_connection, 32), left(_referrer, 400), left(_landing_page, 128),
+     left(_utm, 400), _standalone, _prefers_dark, _reduced_motion,
+     _hw_concurrency, _device_memory)
+  on conflict (id) do update set
+    -- identity can arrive mid-session (sign-in): newest non-null wins
+    contact_id     = coalesce(excluded.contact_id, ts.contact_id),
+    user_id        = coalesce(excluded.user_id,    ts.user_id),
+    -- counters only move forward
+    last_seen_at   = coalesce(excluded.last_seen_at, ts.last_seen_at),
+    duration_ms    = greatest(coalesce(excluded.duration_ms, 0), coalesce(ts.duration_ms, 0)),
+    engaged_ms     = greatest(coalesce(excluded.engaged_ms,  0), coalesce(ts.engaged_ms,  0)),
+    page_views     = greatest(coalesce(excluded.page_views,  0), coalesce(ts.page_views,  0)),
+    -- context is set-once: the first non-null value sticks
+    app_version    = coalesce(ts.app_version,    excluded.app_version),
+    started_at     = coalesce(ts.started_at,     excluded.started_at),
+    timezone       = coalesce(ts.timezone,       excluded.timezone),
+    language       = coalesce(ts.language,       excluded.language),
+    languages      = coalesce(ts.languages,      excluded.languages),
+    platform       = coalesce(ts.platform,       excluded.platform),
+    os             = coalesce(ts.os,             excluded.os),
+    browser        = coalesce(ts.browser,        excluded.browser),
+    device_type    = coalesce(ts.device_type,    excluded.device_type),
+    user_agent     = coalesce(ts.user_agent,     excluded.user_agent),
+    screen_w       = coalesce(ts.screen_w,       excluded.screen_w),
+    screen_h       = coalesce(ts.screen_h,       excluded.screen_h),
+    viewport_w     = coalesce(ts.viewport_w,     excluded.viewport_w),
+    viewport_h     = coalesce(ts.viewport_h,     excluded.viewport_h),
+    pixel_ratio    = coalesce(ts.pixel_ratio,    excluded.pixel_ratio),
+    touch          = coalesce(ts.touch,          excluded.touch),
+    connection     = coalesce(ts.connection,     excluded.connection),
+    referrer       = coalesce(ts.referrer,       excluded.referrer),
+    landing_page   = coalesce(ts.landing_page,   excluded.landing_page),
+    utm            = coalesce(ts.utm,            excluded.utm),
+    standalone     = coalesce(ts.standalone,     excluded.standalone),
+    prefers_dark   = coalesce(ts.prefers_dark,   excluded.prefers_dark),
+    reduced_motion = coalesce(ts.reduced_motion, excluded.reduced_motion),
+    hw_concurrency = coalesce(ts.hw_concurrency, excluded.hw_concurrency),
+    device_memory  = coalesce(ts.device_memory,  excluded.device_memory);
+
+  insert into telemetry_events
+    (id, session_id, contact_id, user_id, app, event, page, props, created_at)
+  select
+    coalesce(nullif(left(e.value->>'id', 64), ''), gen_random_uuid()::text),
+    left(_sid, 64),
+    left(_contact_id, 64),
+    left(_user_id, 128),
+    left(coalesce(_app, 'web'), 16),
+    left(e.value->>'event', 64),
+    left(e.value->>'page', 128),
+    case
+      when e.value->'props' is null or jsonb_typeof(e.value->'props') <> 'object' then null
+      when length((e.value->'props')::text) <= 4000 then (e.value->'props')::text
+      else '{"_truncated":true}'
+    end,
+    left(e.value->>'created_at', 40)
+  from jsonb_array_elements(
+         case when jsonb_typeof(_events) = 'array' then _events else '[]'::jsonb end
+       ) with ordinality as e(value, ord)
+  where jsonb_typeof(e.value) = 'object'
+    and nullif(e.value->>'event', '') is not null
+  order by e.ord
+  limit 100
+  on conflict (id) do nothing;
+$$;
+
+revoke all on function public.track from public;
+grant execute on function public.track to anon, authenticated, service_role;
+
+
+-- ── 9. Leaderboard function ──────────────────────────────────────────────────
 -- Called by the browser via supabase.rpc('get_leaderboard') with the DEFAULT
 -- (public) schema client — js/pages/gemroom.js — so it must live in public.
 -- SECURITY DEFINER lets it read observations (which anon cannot) while only
@@ -300,7 +519,7 @@ $$;
 grant execute on function public.get_leaderboard() to anon, authenticated;
 
 
--- ── 9. OPTIONAL — direct iOS reads (leave commented until wanted) ────────────
+-- ── 10. OPTIONAL — direct iOS reads (leave commented until wanted) ───────────
 -- ios/…/SupabaseManager.fetchObservations calls Supabase REST with the Auth0
 -- JWT as Bearer. For that to work you must FIRST register Auth0 as a
 -- third-party auth provider (Dashboard → Authentication → Sign In / Up →

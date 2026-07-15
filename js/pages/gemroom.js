@@ -34,15 +34,23 @@ const GemRoomPage = (function () {
     const container = document.getElementById('gem-room-content');
     if (!container) return;
 
+    const t0 = performance.now();
     try {
       const { data, error } = await _getClient().rpc('get_leaderboard');
       if (error) throw new Error(error.message);
       const leaderboard = (data ?? []).map(row => ({ ...row, total_observations: row.total_obs }));
+      window.Telemetry?.track('leaderboard_loaded', {
+        rows: leaderboard.length, elapsed_ms: Math.round(performance.now() - t0),
+      });
       container.className = '';
       container.innerHTML = leaderboard.length > 0
         ? renderBoard(leaderboard)
         : renderEmpty();
-    } catch {
+    } catch (err) {
+      window.Telemetry?.track('leaderboard_failed', {
+        elapsed_ms: Math.round(performance.now() - t0),
+        message: String(err?.message || err).slice(0, 200),
+      });
       container.className = '';
       container.innerHTML = renderError();
     }

@@ -46,6 +46,10 @@ const _ready = (async () => {
         const username   = user?.name ?? user?.email ?? '';
         const contactId  = window.DB?.getContactId();
         const now        = new Date().toISOString();
+        if (user?.sub) {
+          window.Telemetry?.identify(user.sub);
+          window.Telemetry?.track('signed_in');
+        }
         await window.DB?.upsertContact({
           id:       contactId,
           email:    user?.email ?? '',

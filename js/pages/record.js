@@ -146,14 +146,17 @@ const RecordPage = (function () {
 
   function handleFile(file) {
     if (!_isAudioFile(file)) {
+      window.Telemetry?.track('file_rejected', { reason: 'not_audio', type: file.type || undefined });
       _showToast("That doesn’t look like an audio or video file — try MP3, WAV, M4A, OGG, FLAC or MOV.");
       return;
     }
     if (file.size === 0) {
+      window.Telemetry?.track('file_rejected', { reason: 'empty' });
       _showToast('That file is empty — try a different recording.');
       return;
     }
     if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      window.Telemetry?.track('file_rejected', { reason: 'too_large', size_mb: Math.round(file.size / 1048576) });
       _showToast(`File is too large — the limit is ${MAX_UPLOAD_MB} MB.`);
       return;
     }
@@ -161,6 +164,10 @@ const RecordPage = (function () {
     currentFile     = file;
     currentFileName = file.name;
     currentDuration = null;
+    window.Telemetry?.track('file_selected', {
+      type: file.type || (file.name || '').split('.').pop().toLowerCase() || undefined,
+      size_kb: Math.round(file.size / 1024),
+    });
     prewarm();
     showAudioPreview(URL.createObjectURL(file), file.name);
   }
@@ -205,6 +212,7 @@ const RecordPage = (function () {
       isRecording   = true;
       recordSeconds = 0;
       setRecordUI(true);
+      window.Telemetry?.track('record_started');
 
       recordTimer = setInterval(() => {
         recordSeconds++;
@@ -212,6 +220,7 @@ const RecordPage = (function () {
         if (el) el.textContent = fmtTime(recordSeconds);
       }, 1000);
     } catch {
+      window.Telemetry?.track('mic_denied');
       const label = document.getElementById('record-label');
       if (label) label.textContent = 'Microphone access denied';
     }
@@ -222,6 +231,7 @@ const RecordPage = (function () {
     clearInterval(recordTimer);
     isRecording = false;
     setRecordUI(false);
+    window.Telemetry?.track('record_stopped', { seconds: recordSeconds });
   }
 
   function setRecordUI(recording) {
@@ -392,12 +402,33 @@ const RecordPage = (function () {
     let apiResult = null;
     let apiError  = null;
 
+    const source = audioBlob ? 'recording' : 'upload';
+    const t0     = performance.now();
+    window.Telemetry?.track('analyze_started', {
+      source, clip_seconds: currentDuration != null ? Number(currentDuration) : undefined,
+    });
+
     const minWait = new Promise(resolve => setTimeout(resolve, 600));
 
     try {
       apiResult = await classifyAudio();
     } catch (err) {
       apiError = err.message || 'Classification failed';
+    }
+
+    if (apiError) {
+      window.Telemetry?.track('analyze_failed', {
+        source, elapsed_ms: Math.round(performance.now() - t0),
+        message: String(apiError).slice(0, 200),
+        local: Boolean(window.EFROG_LOCAL_INFERENCE),
+      });
+    } else {
+      window.Telemetry?.track('analyze_completed', {
+        source, elapsed_ms: Math.round(performance.now() - t0),
+        species: apiResult.species, confidence: apiResult.confidence,
+        clip_seconds: currentDuration != null ? Number(currentDuration) : undefined,
+        local: Boolean(window.EFROG_LOCAL_INFERENCE),
+      });
     }
 
     await minWait;
@@ -592,6 +623,11 @@ const RecordPage = (function () {
     }
 
     function save({ included, feedback, speciesName }) {
+      window.Telemetry?.track('obs_verdict', {
+        verdict: included ? (feedback ? 'agree' : 'dispute') : 'skip',
+        predicted: predictedSpecies,
+        corrected: included && !feedback ? (speciesName ?? 'no_frogs') : undefined,
+      });
       window.DB?.updateObservationFeedback({
         id: entryId,
         included_feedback: included,

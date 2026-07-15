@@ -37,6 +37,8 @@ python3 server.py   # wait for "Warm-up done — first inference is ready."
 
 Observations, feedback, contacts, and login events are stored in Supabase (schema `Version_1`), written directly from the browser/iOS under RLS policies. To stand the backend up on a fresh Supabase project, run [`supabase_rebuild.sql`](supabase_rebuild.sql) in the SQL editor and follow the connection checklist in [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md).
 
+First-party product telemetry (sessions, feature funnels, errors, performance — no third-party trackers, DNT/GPC honored) flows into the same project; see [`TELEMETRY.md`](TELEMETRY.md) for the event catalog and a SQL query cookbook.
+
 ## iOS app
 
 A SwiftUI native app lives under `ios/`. It uses ONNX Runtime Mobile for on-device frog call classification, Auth0.swift for authentication (mirroring the web flow), and supabase-swift for data sync.

@@ -33,7 +33,7 @@ Create a new Supabase project (any name/region). Wait for it to finish provision
 
 SQL Editor → New query → paste the whole of `supabase_rebuild.sql` → Run.
 
-This creates the `Version_1` schema, the four tables (`observations`, `feedback`, `contacts`, `user_logins`), all RLS policies and grants, the `upsert_observation` / `upsert_contact` RPCs, and the `public.get_leaderboard()` function. It's idempotent — re-run it freely. (The former `supabase_observations.sql` and `supabase_leaderboard.sql` scripts were folded into it and removed.)
+This creates the `Version_1` schema, the six tables (`observations`, `feedback`, `contacts`, `user_logins`, `telemetry_sessions`, `telemetry_events`), all RLS policies and grants, the `upsert_observation` / `upsert_contact` / `public.track` RPCs, and the `public.get_leaderboard()` function. It's idempotent — re-run it freely. (The former `supabase_observations.sql` and `supabase_leaderboard.sql` scripts were folded into it and removed. Telemetry details: `TELEMETRY.md`.)
 
 ## Step 3 — Expose the `Version_1` schema (dashboard-only, easy to miss)
 
@@ -74,6 +74,7 @@ Render dashboard → `efrog-api` service → Environment → set `SUPABASE_DB_UR
 2. **Feedback**: submit the Feedback form → row in `Version_1.feedback`.
 3. **Leaderboard**: visit `#leaderboard` — empty is fine on a fresh DB; an error banner means Step 3 or 4 went wrong.
 4. **Signed-in path**: sign in → a `user_logins` row appears and `/sync` on Render returns 200 (checks `SUPABASE_DB_URL`).
+5. **Telemetry**: after ~15 s on the site, `select count(*) from "Version_1".telemetry_events;` ticks up and `telemetry_sessions` has your session with timezone/device context. (No rows? Your browser may send Do Not Track / Global Privacy Control — telemetry honors those.)
 
 ## Optional — migrate data from the old project
 

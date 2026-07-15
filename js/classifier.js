@@ -49,6 +49,7 @@ async function _loadLabels() {
 }
 
 const ready = (async () => {
+  const t0 = performance.now();
   try {
     const [session, labels] = await Promise.all([
       ort.InferenceSession.create(MODEL_URL, {
@@ -74,9 +75,14 @@ const ready = (async () => {
       if (n < _labels.length) _labels = _labels.slice(0, n);
     }
     _state = 'ok';
+    window.Telemetry?.track('model_loaded', { elapsed_ms: Math.round(performance.now() - t0) });
   } catch (err) {
     _state = 'error';
     console.error('[Classifier] failed to load model:', err);
+    window.Telemetry?.track('model_load_failed', {
+      elapsed_ms: Math.round(performance.now() - t0),
+      message: String(err?.message || err).slice(0, 200),
+    });
     throw err;
   }
 })();

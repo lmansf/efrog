@@ -33,6 +33,10 @@ pip install -r requirements.txt
 python3 server.py   # wait for "Warm-up done — first inference is ready."
 ```
 
+## Supabase backend
+
+Observations, feedback, contacts, and login events are stored in Supabase (schema `Version_1`), written directly from the browser/iOS under RLS policies. To stand the backend up on a fresh Supabase project, run [`supabase_rebuild.sql`](supabase_rebuild.sql) in the SQL editor and follow the connection checklist in [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md).
+
 ## iOS app
 
 A SwiftUI native app lives under `ios/`. It uses ONNX Runtime Mobile for on-device frog call classification, Auth0.swift for authentication (mirroring the web flow), and supabase-swift for data sync.

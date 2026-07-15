@@ -11,6 +11,15 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Local DuckDB-WASM is used for in-session storage (`js/db.js`). Browser → Supabase writes go directly (anon RLS policies). Browser → server reads use the Flask API (`server.py`, hosted on Render).
 - Supabase schema is `"Version_1"`. **No anon SELECT policy** on `observations` — reads must go through the Flask server which uses `SUPABASE_DB_URL` (service role) via `psycopg2`.
 
+## Supabase schema (full)
+
+- `supabase_rebuild.sql` (repo root) is the canonical full bootstrap for a fresh Supabase project: schema `Version_1`, all four tables, RLS, grants, the upsert RPCs, and `public.get_leaderboard()`. `SUPABASE_SETUP.md` has the connection checklist. (The former `supabase_observations.sql` / `supabase_leaderboard.sql` were folded into it and deleted.)
+- Four tables, all with TEXT ISO-8601 timestamps: `observations` (merged by id), `feedback` (append-only; has an `email` column only the browser writes), `contacts` (merged by id, keyed by localStorage `efrog_contact_id`; has `user_id` written by `js/auth.js`), `user_logins` (append-only; web sends `logged_in_at`+`id`, iOS sends `created_at` and relies on the `id` default).
+- **Upserts go through SECURITY DEFINER RPCs** (`Version_1.upsert_observation`, `Version_1.upsert_contact`), not direct table access: Postgres applies SELECT policies/column privileges to `INSERT … ON CONFLICT DO UPDATE` (the `EXCLUDED.*` reads), so PostgREST upserts cannot work on tables anon can't read. NULL/omitted RPC args leave existing column values untouched. Callers: `js/db.js` (`_sbRpc`) and `ios/…/SupabaseManager.swift`.
+- The `anon` role has INSERT only on `feedback`/`user_logins` and no table privileges at all on `observations`/`contacts`; nothing is SELECTable with the publishable key.
+- `get_leaderboard()` must live in `public` — `js/pages/gemroom.js` creates its client without the `Version_1` schema option.
+- Dashboard-only step SQL can't do: `Version_1` must be added to Data API "Exposed schemas", or every PostgREST call fails.
+
 ## iOS Auth
 
 - Auth module lives in `ios/eFrog/Auth/`. Three files: `AuthManager.swift` (ObservableObject, public API: `login()`, `logout()`, `getAccessToken()`), `UserProfile.swift` (userId/name/email struct), `Auth0.plist` (domain + clientId).
@@ -30,7 +39,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - The leaderboard page (`js/pages/gemroom.js`, route `#leaderboard`) fetches scores via `supabase.rpc('get_leaderboard')` directly from the browser — no Flask server involved, no Render cold-start delay.
 - Formula: `unique_species × total_observations × 10`. Only users with `user_id` and `username` set appear (requires Auth0 sign-in + sync).
-- The `get_leaderboard()` Postgres function must be created once in the Supabase SQL editor by running `supabase_leaderboard.sql` (at repo root). It uses `SECURITY DEFINER` to read `observations` (which has no anon SELECT policy) and returns only aggregated scores.
+- The `get_leaderboard()` Postgres function must be created once in the Supabase SQL editor by running `supabase_rebuild.sql` (at repo root, which also creates the tables and RPCs). It uses `SECURITY DEFINER` to read `observations` (which has no anon SELECT policy) and returns only aggregated scores.
 - The Flask `/leaderboard` endpoint in `server.py` remains as a fallback but is no longer used by the frontend.
 
 ## iOS audio pipeline (`ios/eFrog/Audio/`)

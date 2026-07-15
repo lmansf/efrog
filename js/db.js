@@ -90,9 +90,13 @@ async function _guard() {
 }
 
 // ── Direct Supabase writes ──────────────────────────────────────────────────
-// Feedback and contacts go straight from the browser to Supabase's REST API
-// (PostgREST), guarded by Row-Level-Security insert policies — no server, so it
-// works for anonymous visitors and even when the Render box is asleep.
+// Writes go straight from the browser to Supabase (PostgREST) — no server, so
+// it works for anonymous visitors and even when the Render box is asleep.
+// Append-only tables (feedback, user_logins) are plain INSERTs guarded by
+// Row-Level-Security insert policies. Upserted rows (observations, contacts)
+// go through SECURITY DEFINER RPCs (see supabase_rebuild.sql) because Postgres
+// disallows INSERT … ON CONFLICT DO UPDATE on tables anon cannot SELECT —
+// the RPCs merge by id while keeping the tables unreadable with the anon key.
 
 function _sbReady() {
   const url = window.SUPABASE_URL, key = window.SUPABASE_ANON_KEY;
@@ -109,16 +113,22 @@ function _sbClient() {
   return _sbClientInstance;
 }
 
-async function _sbInsert(table, row, { merge = false } = {}) {
+function _sbGuardConfigured() {
   if (!_sbReady()) {
     throw new Error('Supabase is not configured — set SUPABASE_URL and SUPABASE_ANON_KEY in js/config.js');
   }
-  const client = _sbClient();
-  const query  = merge
-    ? client.from(table).upsert(row, { onConflict: 'id' })
-    : client.from(table).insert(row);
-  const { error } = await query;
+}
+
+async function _sbInsert(table, row) {
+  _sbGuardConfigured();
+  const { error } = await _sbClient().from(table).insert(row);
   if (error) throw new Error(`Supabase ${table} insert failed: ${error.message}`);
+}
+
+async function _sbRpc(fn, args) {
+  _sbGuardConfigured();
+  const { error } = await _sbClient().rpc(fn, args);
+  if (error) throw new Error(`Supabase ${fn} failed: ${error.message}`);
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -255,16 +265,35 @@ window.DB = {
     return upsertContact(data);
   },
 
-  // Send one observation straight to Supabase as it happens (works anonymously,
-  // RLS-governed). merge=true so a later server sync / re-send is idempotent.
+  // Send one observation straight to Supabase as it happens (works anonymously).
+  // Merged by id via the upsert_observation RPC so a later server sync /
+  // re-send is idempotent.
   async sendObservation(row) {
-    return _sbInsert('observations', row, { merge: true });
+    return _sbRpc('upsert_observation', {
+      _id:                String(row.id),
+      _user_id:           row.user_id           ?? null,
+      _contact_id:        row.contact_id        ?? null,
+      _username:          row.username          ?? null,
+      _created_at:        row.created_at        ?? null,
+      _type:              row.type              ?? null,
+      _name:              row.name              ?? null,
+      _duration:          row.duration          ?? null,
+      _species:           row.species           ?? null,
+      _confidence:        row.confidence        ?? null,
+      _probabilities:     row.probabilities     ?? null,
+      _is_holo:           row.is_holo           ?? null,
+      _mel_spectrogram:   row.mel_spectrogram   ?? null,
+      _included_feedback: row.included_feedback ?? null,
+      _feedback:          row.feedback          ?? null,
+      _species_name:      row.species_name      ?? null,
+    });
   },
 
-  // Append the user's verdict to an existing observation. Upsert by id so only
-  // the feedback columns change (the row was created at analysis time). Also
-  // best-effort updates the local DuckDB copy. Called the moment the user picks
-  // agree / dispute / not-now under a result card.
+  // Append the user's verdict to an existing observation. Merged by id via the
+  // upsert_observation RPC so only the feedback columns change (the row was
+  // created at analysis time). Also best-effort updates the local DuckDB copy.
+  // Called the moment the user picks agree / dispute / not-now under a result
+  // card.
   async updateObservationFeedback({ id, included_feedback, feedback, species_name }) {
     const row = {
       id:                String(id),
@@ -283,7 +312,12 @@ window.DB = {
         await stmt.close();
       } catch { /* local copy is best-effort */ }
     }
-    return _sbInsert('observations', row, { merge: true });
+    return _sbRpc('upsert_observation', {
+      _id:                row.id,
+      _included_feedback: row.included_feedback,
+      _feedback:          row.feedback,
+      _species_name:      row.species_name,
+    });
   },
 
   // Send one feedback row straight to Supabase. Throws on failure so the caller
@@ -292,10 +326,17 @@ window.DB = {
     return _sbInsert('feedback', row);
   },
 
-  // Upsert a contact (keyed by the stable contact id) into Supabase. merge=true
-  // so an email provided later attaches to an id seen earlier.
+  // Upsert a contact (keyed by the stable contact id) into Supabase via the
+  // upsert_contact RPC, so an email provided later attaches to an id seen
+  // earlier.
   async sendContact(row) {
-    return _sbInsert('contacts', row, { merge: true });
+    return _sbRpc('upsert_contact', {
+      _id:         String(row.id),
+      _email:      row.email      ?? null,
+      _username:   row.username   ?? null,
+      _user_id:    row.user_id    ?? null,
+      _updated_at: row.updated_at ?? null,
+    });
   },
 
   async sendLoginEvent(row) {
@@ -307,7 +348,7 @@ window.DB = {
     if (isNew && _sbReady()) {
       // Best-effort: register the anonymous visitor; email is filled in later
       // when they provide one (feedback form or sign-in).
-      _sbInsert('contacts', { id, updated_at: new Date().toISOString() }, { merge: true })
+      _sbRpc('upsert_contact', { _id: id, _updated_at: new Date().toISOString() })
         .catch(() => {});
     }
     return id;

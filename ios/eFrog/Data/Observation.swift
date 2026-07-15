@@ -1,7 +1,7 @@
 import Foundation
 
 /// Shared model for a frog-call observation. Covers the full Supabase `Version_1.observations`
-/// schema (supabase_observations.sql) plus local-only fields used by ObservationStore.
+/// schema (supabase_rebuild.sql) plus local-only fields used by ObservationStore.
 struct Observation: Identifiable, Codable, Equatable {
     // MARK: - Supabase columns
 

@@ -42,14 +42,14 @@ final class SupabaseManager {
     // MARK: - Public API
 
     /// Upsert one observation to Supabase. Idempotent — safe to call on re-send.
-    /// Mirrors js/db.js `sendObservation` (line 260–262): upsert by `id`, merge=true.
-    /// The anon RLS policy (`supabase_observations.sql:49–54`) allows anonymous INSERT.
+    /// Mirrors js/db.js `sendObservation`: merged by `id` via the SECURITY DEFINER
+    /// `upsert_observation` RPC (see `supabase_rebuild.sql`). The observations table
+    /// itself is not directly writable (or readable) with the anon key.
     func sendObservation(_ obs: Observation) async throws {
-        let row = ObservationRow(from: obs)
+        let params = UpsertObservationParams(from: obs)
         try await client
             .schema(Constants.schema)
-            .from("observations")
-            .upsert(row, onConflict: "id")
+            .rpc("upsert_observation", params: params)
             .execute()
     }
 
@@ -68,7 +68,7 @@ final class SupabaseManager {
         default:         feedbackValue = nil
         }
 
-        let row = FeedbackUpdateRow(
+        let params = FeedbackUpdateParams(
             id: id,
             includedFeedback: true,
             feedback: feedbackValue,
@@ -76,8 +76,7 @@ final class SupabaseManager {
         )
         try await client
             .schema(Constants.schema)
-            .from("observations")
-            .upsert(row, onConflict: "id")
+            .rpc("upsert_observation", params: params)
             .execute()
     }
 
@@ -102,7 +101,7 @@ final class SupabaseManager {
     ///
     /// - Note: Requires a Supabase RLS SELECT policy that allows authenticated users to
     ///   read their own rows (e.g. `USING (user_id = auth.jwt()->>'sub')`).
-    ///   The current supabase_observations.sql has no SELECT policy — add one alongside
+    ///   supabase_rebuild.sql ships this policy commented out — enable it alongside
     ///   configuring Supabase to accept Auth0 JWTs (Settings → Auth → JWT Secret).
     ///
     /// - Parameters:
@@ -144,11 +143,12 @@ final class SupabaseManager {
         return components?.url
     }
 
-    // MARK: - Row types
+    // MARK: - RPC parameter types
 
-    /// Internal Supabase row for the `observations` table.
-    /// Mirrors the schema in supabase_observations.sql and the fields sent in js/db.js:126–142.
-    private struct ObservationRow: Encodable {
+    /// Arguments for the `upsert_observation` RPC (see supabase_rebuild.sql).
+    /// Keys are the function's `_`-prefixed argument names; values mirror the
+    /// fields sent in js/db.js `sendObservation`.
+    private struct UpsertObservationParams: Encodable {
         let id: String
         let userId: String?
         let contactId: String?
@@ -167,22 +167,22 @@ final class SupabaseManager {
         let speciesName: String?
 
         enum CodingKeys: String, CodingKey {
-            case id
-            case userId           = "user_id"
-            case contactId        = "contact_id"
-            case username
-            case createdAt        = "created_at"
-            case type
-            case name
-            case duration
-            case species
-            case confidence
-            case probabilities
-            case isHolo           = "is_holo"
-            case melSpectrogram   = "mel_spectrogram"
-            case includedFeedback = "included_feedback"
-            case feedback
-            case speciesName      = "species_name"
+            case id               = "_id"
+            case userId           = "_user_id"
+            case contactId        = "_contact_id"
+            case username         = "_username"
+            case createdAt        = "_created_at"
+            case type             = "_type"
+            case name             = "_name"
+            case duration         = "_duration"
+            case species          = "_species"
+            case confidence       = "_confidence"
+            case probabilities    = "_probabilities"
+            case isHolo           = "_is_holo"
+            case melSpectrogram   = "_mel_spectrogram"
+            case includedFeedback = "_included_feedback"
+            case feedback         = "_feedback"
+            case speciesName      = "_species_name"
         }
 
         init(from obs: Observation) {
@@ -213,19 +213,20 @@ final class SupabaseManager {
         }
     }
 
-    /// Partial row for updating feedback verdict on an existing observation.
-    /// Mirrors js/db.js updateObservationFeedback row (lines 269–274).
-    private struct FeedbackUpdateRow: Encodable {
+    /// Partial arguments for `upsert_observation` when only attaching a verdict —
+    /// omitted arguments default to NULL, which leaves existing values untouched.
+    /// Mirrors js/db.js updateObservationFeedback.
+    private struct FeedbackUpdateParams: Encodable {
         let id: String
         let includedFeedback: Bool
         let feedback: Bool?
         let speciesName: String?
 
         enum CodingKeys: String, CodingKey {
-            case id
-            case includedFeedback = "included_feedback"
-            case feedback
-            case speciesName      = "species_name"
+            case id               = "_id"
+            case includedFeedback = "_included_feedback"
+            case feedback         = "_feedback"
+            case speciesName      = "_species_name"
         }
     }
 

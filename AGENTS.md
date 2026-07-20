@@ -21,6 +21,15 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Dashboard-only step SQL can't do: `Version_1` must be added to Data API "Exposed schemas", or every PostgREST call fails.
 - Telemetry: `js/telemetry.js` batches events into the `public.track()` RPC (also in `public` because `navigator.sendBeacon` can't send PostgREST profile headers; apikey rides as a query param on the beacon path). Tables `telemetry_sessions`/`telemetry_events` have RLS on and zero anon grants — writable only through `track()`. Event catalog + SQL cookbook: `TELEMETRY.md`. Feature code emits events via `window.Telemetry?.track(name, props)` — guard with `?.` since telemetry may be disabled (DNT/GPC/opt-out).
 
+## iOS app project
+
+- The Xcode project is **generated** — `ios/project.yml` (XcodeGen) is the source of truth; `eFrog.xcodeproj` and the generated `eFrog/Info.plist` are gitignored. After adding/removing Swift files or changing build settings: `cd ios && xcodegen generate`. Release runbook: `ios/TESTFLIGHT.md`.
+- ONNX Runtime comes from `microsoft/onnxruntime-swift-package-manager` (NOT the main onnxruntime repo, which has no Package.swift). Product name `onnxruntime`, importable module `OnnxRuntimeBindings` — verified against that repo's Package.swift. Never use `OrtSwift` / `import OnnxRuntime`.
+- `frog_classifier.onnx` + `labels.json` are bundle resources referenced from the **repo root** via project.yml (`../frog_classifier.onnx`) so iOS/web/server can't drift; there are no copies under `ios/`.
+- Bundle id `com.efrog.ios`; Info.plist (mic permission, `UILaunchScreen`, Auth0 URL scheme = bundle id, `ITSAppUsesNonExemptEncryption=false`) is generated from the `info:` block in project.yml.
+- SwiftUI views rely on the Xcode 15+ SDK where the `View` protocol is `@MainActor` — view methods may call `ObservationStore`/`AuthManager` (both `@MainActor`) directly, but code inside `Task.detached` must not.
+- UI screens live in `ios/eFrog/App/`: AnalyzeView (record/import → classify → verdict), CollectionView (CoreData history), LeaderboardView (`get_leaderboard` RPC), AboutView (Auth0 sign-in + login event/contact enrichment).
+
 ## iOS Auth
 
 - Auth module lives in `ios/eFrog/Auth/`. Three files: `AuthManager.swift` (ObservableObject, public API: `login()`, `logout()`, `getAccessToken()`), `UserProfile.swift` (userId/name/email struct), `Auth0.plist` (domain + clientId).

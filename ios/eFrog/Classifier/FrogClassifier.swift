@@ -7,9 +7,11 @@
 // The model was trained on 5-second clips → T = 157 frames
 // (5 s × 16 000 Hz / 512 hop = 156.25 → padded to 157).
 //
-// NOTE: The SPM product is "OrtSwift" (microsoft/onnxruntime ≥ 1.20.0).
-// If Xcode resolves the module under a different name, update this import.
-import OnnxRuntime
+// Dependency: https://github.com/microsoft/onnxruntime-swift-package-manager
+// (declared in ios/project.yml). The SPM product is "onnxruntime"; the
+// importable module is "OnnxRuntimeBindings" (verified against that repo's
+// Package.swift — the target of the same name wraps the ORT Objective-C API).
+import OnnxRuntimeBindings
 import Foundation
 
 enum ClassifierError: Error, LocalizedError {

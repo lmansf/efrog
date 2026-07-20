@@ -1,0 +1,86 @@
+# XcodeGen spec for the eFrog iOS app.
+#
+# On your Mac:
+#   brew install xcodegen
+#   cd ios && xcodegen generate && open eFrog.xcodeproj
+#
+# The generated eFrog.xcodeproj is disposable (gitignored) — this file is the
+# source of truth. Re-run `xcodegen generate` after adding/removing files.
+# Full release walkthrough: ios/TESTFLIGHT.md.
+name: eFrog
+
+options:
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  xcodeVersion: "15.0"
+
+packages:
+  onnxruntime:
+    url: https://github.com/microsoft/onnxruntime-swift-package-manager
+    from: 1.24.2
+  Auth0:
+    url: https://github.com/auth0/Auth0.swift
+    from: 2.5.0
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.5.0
+
+targets:
+  eFrog:
+    type: application
+    platform: iOS
+    sources:
+      # All Swift sources + Assets.xcassets + Auth0.plist (non-source files are
+      # placed in the resources build phase automatically).
+      - path: eFrog
+      # The model + labels ship in the bundle but live at the repo root so the
+      # web app, server, and iOS app can never drift apart. FrogClassifier
+      # loads them via Bundle.main (frog_classifier.onnx / labels.json).
+      - path: ../frog_classifier.onnx
+        buildPhase: resources
+      - path: ../labels.json
+        buildPhase: resources
+    dependencies:
+      - package: onnxruntime
+        product: onnxruntime
+      - package: Auth0
+        product: Auth0
+      - package: Supabase
+        product: Supabase
+    info:
+      path: eFrog/Info.plist
+      properties:
+        CFBundleDisplayName: eFrog
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # Empty dict = system launch screen (solid background) — required so
+        # the app renders full-screen on every device without a storyboard.
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSMicrophoneUsageDescription: >-
+          eFrog records a 5-second audio clip of frog calls so the on-device
+          model can identify the species. Audio is analyzed locally.
+        # Uses only standard HTTPS/ATS crypto → answers App Store Connect's
+        # export-compliance question automatically on every upload.
+        ITSAppUsesNonExemptEncryption: false
+        # Auth0 callback (scheme = bundle id), per Auth0.swift quickstart.
+        CFBundleURLTypes:
+          - CFBundleURLName: auth0
+            CFBundleURLSchemes:
+              - "$(PRODUCT_BUNDLE_IDENTIFIER)"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.efrog.ios
+        MARKETING_VERSION: 1.0.0
+        CURRENT_PROJECT_VERSION: 1
+        TARGETED_DEVICE_FAMILY: "1"          # iPhone
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_STYLE: Automatic
+        # DEVELOPMENT_TEAM is intentionally not set — pick your team once in
+        # Xcode → target eFrog → Signing & Capabilities (see TESTFLIGHT.md).
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_USER_SCRIPT_SANDBOXING: true
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: true

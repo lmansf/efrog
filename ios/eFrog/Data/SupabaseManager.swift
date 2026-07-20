@@ -95,6 +95,42 @@ final class SupabaseManager {
             .execute()
     }
 
+    /// Merge a contact row by id via the SECURITY DEFINER `upsert_contact` RPC.
+    /// Mirrors js/db.js `sendContact`: nil args leave existing column values untouched.
+    func upsertContact(id: String, email: String? = nil, username: String? = nil, userId: String? = nil) async throws {
+        let params = UpsertContactParams(
+            id: id,
+            email: email,
+            username: username,
+            userId: userId,
+            updatedAt: ISO8601DateFormatter().string(from: Date())
+        )
+        try await client
+            .schema(Constants.schema)
+            .rpc("upsert_contact", params: params)
+            .execute()
+    }
+
+    /// Fetch the public leaderboard via the SECURITY DEFINER `public.get_leaderboard()`
+    /// RPC — same call the web Gem Room makes (js/pages/gemroom.js), no Flask involved.
+    /// Lives in the default (public) schema, so no .schema() selector here.
+    func fetchLeaderboard() async throws -> [LeaderboardEntry] {
+        try await client
+            .rpc("get_leaderboard")
+            .execute()
+            .value
+    }
+
+    /// Stable anonymous device id — the iOS analog of the web's localStorage
+    /// `efrog_contact_id`. Created on first use, persisted in UserDefaults.
+    static var contactId: String {
+        let key = "efrog_contact_id"
+        if let existing = UserDefaults.standard.string(forKey: key) { return existing }
+        let fresh = UUID().uuidString.lowercased()
+        UserDefaults.standard.set(fresh, forKey: key)
+        return fresh
+    }
+
     /// Fetch this user's observations directly from Supabase using their Auth0 JWT.
     /// Mirrors the Flask `/observations` endpoint behaviour (server.py) but calls Supabase
     /// REST directly with the user's access token as the Bearer credential.
@@ -243,6 +279,25 @@ final class SupabaseManager {
         }
     }
 
+    /// Arguments for the `upsert_contact` RPC (see supabase_rebuild.sql).
+    /// Optional nils are omitted by the synthesized encoder → SQL defaults (NULL)
+    /// → existing column values are kept.
+    private struct UpsertContactParams: Encodable {
+        let id: String
+        let email: String?
+        let username: String?
+        let userId: String?
+        let updatedAt: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id        = "_id"
+            case email     = "_email"
+            case username  = "_username"
+            case userId    = "_user_id"
+            case updatedAt = "_updated_at"
+        }
+    }
+
     // MARK: - Error
 
     enum SupabaseError: LocalizedError {
@@ -255,5 +310,24 @@ final class SupabaseManager {
             case .requestFailed(let m):  return "Supabase request failed: \(m)"
             }
         }
+    }
+}
+
+// MARK: - LeaderboardEntry
+
+/// One row from `public.get_leaderboard()`. gem_score = unique_species × total_obs × 10.
+struct LeaderboardEntry: Decodable, Identifiable {
+    let username: String?
+    let uniqueSpecies: Int
+    let totalObs: Int
+    let gemScore: Int
+
+    var id: String { "\(username ?? "?")·\(gemScore)·\(totalObs)" }
+
+    enum CodingKeys: String, CodingKey {
+        case username
+        case uniqueSpecies = "unique_species"
+        case totalObs      = "total_obs"
+        case gemScore      = "gem_score"
     }
 }

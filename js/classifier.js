@@ -258,11 +258,16 @@ window.Classifier = {
       throw new Error('Could not read that audio file — it may be empty or corrupt');
     }
 
-    const signal = window.TrustGuard?.summarizeSignal
-      ? window.TrustGuard.summarizeSignal(samples, MEL_CONFIG.SAMPLE_RATE)
-      : null;
+    if (!window.TrustGuard?.summarizeSignal) {
+      throw new Error('Classification trust check failed to load — reload the page and try again');
+    }
 
-    const { data, nMels, nFrames } = melSpectrogram(samples, DURATION_SAMPLES);
+    const clip = samples.length > DURATION_SAMPLES
+      ? samples.subarray(0, DURATION_SAMPLES)
+      : samples;
+    const signal = window.TrustGuard.summarizeSignal(clip, MEL_CONFIG.SAMPLE_RATE);
+
+    const { data, nMels, nFrames } = melSpectrogram(clip, DURATION_SAMPLES);
     const input = new ort.Tensor('float32', data, [1, 1, nMels, nFrames]);
     const output = await _session.run({ [_inputName]: input });
     const logits = output[_outputName].data;   // raw logits

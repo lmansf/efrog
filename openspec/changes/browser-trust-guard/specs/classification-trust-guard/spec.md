@@ -11,6 +11,17 @@ The browser classification flow SHALL abstain when the analyzed clip is too shor
 - **WHEN** a user analyzes a clip shorter than the minimum supported signal window
 - **THEN** the browser SHALL return an abstained result instead of promoting a species card
 
+#### Scenario: Long upload whose analyzed window is silent
+- **WHEN** a user analyzes a clip longer than the model's clip length whose leading analyzed window is silent or near-silent
+- **THEN** the browser SHALL judge signal quality over the same truncated window that is fed to the model and SHALL return an abstained result, regardless of signal later in the clip
+
+### Requirement: The trust guard fails closed
+The browser classification flow SHALL NOT produce a confident species identification when the trust guard is unavailable.
+
+#### Scenario: Trust guard script fails to load
+- **WHEN** browser-side classification runs without a loaded trust guard
+- **THEN** the app SHALL surface an error or an abstained result and SHALL NOT render or persist a confident species card
+
 ### Requirement: Abstained results use neutral UI and skip persistence
 When the trust guard abstains, the Analyze page SHALL render neutral guidance and SHALL NOT save or solicit feedback for a species observation.
 

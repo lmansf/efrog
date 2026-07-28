@@ -314,6 +314,17 @@ const RecordPage = (function () {
     return new Promise(resolve => setTimeout(() => { loader.remove(); resolve(); }, 1100));
   }
 
+  function assessTrust(result) {
+    if (window.TrustGuard?.evaluate) return window.TrustGuard.evaluate(result);
+    if (!result?.signal) return { abstain: false, reason: null };
+    return {
+      abstain: true,
+      reason: 'guard-unavailable',
+      title: 'No frog call confidently detected',
+      detail: 'The classification trust check could not run. Reload the page and try again.',
+    };
+  }
+
   function abstainedResultHtml(assessment) {
     return `
       <div class="result-placeholder">
@@ -430,9 +441,7 @@ const RecordPage = (function () {
         </div>
       `;
     } else {
-      const trustAssessment = window.TrustGuard?.evaluate
-        ? window.TrustGuard.evaluate(apiResult)
-        : { abstain: false, reason: null };
+      const trustAssessment = assessTrust(apiResult);
 
       if (trustAssessment.abstain) {
         currentEntryId = null;

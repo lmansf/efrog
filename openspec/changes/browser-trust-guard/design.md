@@ -16,9 +16,11 @@
 
 ## Decisions
 
-Add a dedicated `js/trust-guard.js` module-like global that owns two pure decisions: signal summarization from decoded PCM and abstention evaluation from signal stats plus classifier probabilities. This keeps thresholds and user-facing abstention copy in one place and provides a simple Node-testable surface without changing the app's script architecture.
+Add a dedicated `js/trust-guard.js` module-like global that owns two pure decisions: signal summarization from decoded PCM and abstention evaluation from those signal stats. This keeps thresholds and user-facing abstention copy in one place and provides a simple Node-testable surface without changing the app's script architecture.
 
-Expose signal stats from `js/classifier.js` with the classification result rather than re-decoding audio in `record.js`. The classifier already has the decoded 16 kHz mono samples, so this avoids duplicate work and lets the guard inspect the exact audio that drove inference.
+Expose signal stats from `js/classifier.js` with the classification result rather than re-decoding audio in `record.js`. The classifier already has the decoded 16 kHz mono samples, so this avoids duplicate work and lets the guard inspect the exact audio that drove inference — the stats are summarized over the same truncated 5 s window that is fed to the mel spectrogram, not the whole decoded clip.
+
+Fail closed when the guard is missing. `classify()` refuses to run without `TrustGuard`, and `record.js` abstains for any result that carries signal stats it cannot evaluate, so a failed `js/trust-guard.js` load surfaces as an error or an abstention instead of silently restoring the unguarded confident-card path.
 
 Apply the trust guard in `js/pages/record.js` before any history entry, database write, or feedback prompt is created. This is the narrowest place that protects the user-facing result surface and persistence path without widening into server-side flows.
 

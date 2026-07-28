@@ -45,3 +45,25 @@ test('does not abstain on adequate-signal clips', () => {
   assert.equal(assessment.abstain, false);
   assert.equal(assessment.reason, null);
 });
+
+test('abstains when only the analyzed window is silent', () => {
+  const sampleRate = 16000;
+  const clipSamples = sampleRate * 5;
+  const samples = new Float32Array(sampleRate * 30);
+  const loudTail = sineWave({ durationSeconds: 25, amplitude: 0.4 });
+  samples.set(loudTail, clipSamples);
+
+  const wholeClip = TrustGuard.evaluate({ signal: TrustGuard.summarizeSignal(samples, sampleRate) });
+  assert.equal(wholeClip.abstain, false);
+
+  const analyzedWindow = TrustGuard.evaluate({
+    signal: TrustGuard.summarizeSignal(samples.subarray(0, clipSamples), sampleRate),
+  });
+  assert.equal(analyzedWindow.abstain, true);
+  assert.equal(analyzedWindow.reason, 'low-signal');
+});
+
+test('does not abstain when the result carries no signal stats', () => {
+  assert.equal(TrustGuard.evaluate({ species: 'bullfrog', confidence: 0.99 }).abstain, false);
+  assert.equal(TrustGuard.evaluate(null).abstain, false);
+});

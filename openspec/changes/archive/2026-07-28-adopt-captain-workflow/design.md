@@ -22,9 +22,10 @@
   Rationale: a proposal-first workflow is not real until the repo contains the OpenSpec root and agent entry points.
   Alternative considered: document OpenSpec in `README.md` only. Rejected because crews would still lack a canonical in-tree spec location.
 
-- Define one new `captain-workflow` capability and mirror it in `README.md` and `AGENTS.md`.
-  Rationale: one cohesive capability keeps the change proportional and ties the docs back to a normative spec.
+- Define one new `captain-workflow` capability, document the loop once in `README.md`, and have `AGENTS.md` point to it.
+  Rationale: one cohesive capability keeps the change proportional and ties the docs back to a normative spec; a single owning document keeps the loop from drifting between two prose copies. `AGENTS.md` keeps only the agent-specific caveat that the loop describes a top-level contributor session.
   Alternative considered: split the workflow into separate capabilities per tool. Rejected because the tools are only useful as one loop here.
+  Alternative considered: mirror the full loop in both `README.md` and `AGENTS.md`. Rejected because duplicated prose goes stale independently.
 
 - Treat `.lavish/` as the default local review-artifact directory and ignore it in git.
   Rationale: contributors need a stable place to build review surfaces without polluting commits.

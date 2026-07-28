@@ -48,7 +48,7 @@ python3 server.py   # wait for "Warm-up done — first inference is ready."
 
 A SwiftUI native app lives under `ios/`. It uses ONNX Runtime Mobile for on-device frog call classification, Auth0.swift for authentication (mirroring the web flow), and supabase-swift for data sync.
 
-See [`ios/README.md`](ios/README.md) for Auth0 dashboard and Xcode setup.
+See [`ios/README.md`](ios/README.md) for setup instructions (Xcode 15+, copy the model file, configure signing, Auth0 dashboard).
 
 ---
 
@@ -85,9 +85,3 @@ cp ../efrog-training/artifacts/frog_classifier.onnx ./frog_classifier.onnx
 ```
 
 No code changes are needed when the species list changes — labels travel inside the model file.
-
----
-
-## iOS app
-
-A native SwiftUI app (`ios/`) runs the same classifier on-device using ONNX Runtime Mobile. See **[ios/README.md](ios/README.md)** for setup instructions (Xcode 15+, copy model file, configure signing).

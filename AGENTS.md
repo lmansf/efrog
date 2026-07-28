@@ -33,6 +33,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - The `get_leaderboard()` Postgres function must be created once in the Supabase SQL editor by running `supabase_leaderboard.sql` (at repo root). It uses `SECURITY DEFINER` to read `observations` (which has no anon SELECT policy) and returns only aggregated scores.
 - The Flask `/leaderboard` endpoint in `server.py` remains as a fallback but is no longer used by the frontend.
 
+## Browser Classification Trust Guard
+
+- Browser-side abstention lives in `js/trust-guard.js`. `window.Classifier.classify()` adds decoded-audio `signal` stats, and `js/pages/record.js` calls `window.TrustGuard.evaluate()` before rendering or persisting a result.
+- Trust-guard abstentions render `No frog call confidently detected` and skip local history, DuckDB/Supabase observation writes, and the per-result `Was this identification right?` prompt.
+- Thresholds and abstention copy live only in `js/trust-guard.js`; it is dependency-free and dual-exports (`module.exports` + `global.TrustGuard`) so `node --test test/` can cover it without a browser. That is the repo's only JS test suite — there is no `package.json`, linter, or formatter config.
+
 ## iOS audio pipeline (`ios/eFrog/Audio/`)
 
 Three Swift files form the audio pipeline.  All target 16 kHz mono Float32, 80 000 samples (5 s).
@@ -54,3 +60,10 @@ Three Swift files form the audio pipeline.  All target 16 kHz mono Float32, 80 0
 ### AudioFileLoader.swift
 - `AVAudioFile` + `AVAudioConverter` → 16 kHz mono Float32.
 - Reads only as many source frames as needed for 80 000 output samples (avoids large-file allocation).
+
+## Maintaining this file
+
+Keep this file for knowledge useful to almost every future agent session in this project.
+Do not repeat what the codebase already shows; point to the authoritative file or command instead.
+Prefer rewriting or pruning existing entries over appending new ones.
+When updating this file, preserve this bar for all agents and keep entries concise.

@@ -314,6 +314,29 @@ const RecordPage = (function () {
     return new Promise(resolve => setTimeout(() => { loader.remove(); resolve(); }, 1100));
   }
 
+  function assessTrust(result) {
+    if (window.TrustGuard?.evaluate) return window.TrustGuard.evaluate(result);
+    if (!result?.signal) return { abstain: false, reason: null };
+    return {
+      abstain: true,
+      reason: 'guard-unavailable',
+      title: 'No frog call confidently detected',
+      detail: 'The classification trust check could not run. Reload the page and try again.',
+    };
+  }
+
+  function abstainedResultHtml(assessment) {
+    return `
+      <div class="result-placeholder">
+        <div class="result-species">
+          <div class="result-species-name result-uncertain">${escHtml(assessment.title)}</div>
+          <div class="result-confidence-badge confidence-low">Trust guard abstained</div>
+        </div>
+        <p class="result-hint">${escHtml(assessment.detail)}</p>
+      </div>
+    `;
+  }
+
   // ── Classification ────────────────────────────────────
   async function classifyAudio() {
     const payload = audioBlob || currentFile;
@@ -418,6 +441,20 @@ const RecordPage = (function () {
         </div>
       `;
     } else {
+      const trustAssessment = assessTrust(apiResult);
+
+      if (trustAssessment.abstain) {
+        currentEntryId = null;
+        currentSpecies = null;
+        currentConfidence = null;
+        window.__efrogLastObs = null;
+        resultContent.innerHTML = abstainedResultHtml(trustAssessment);
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = 'Analyze again';
+        resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+
       // 5% chance this observation is "holo" — decided once, at creation, so it
       // stays stable. Holographic card rendering comes later.
       const isHolo = Math.random() < 0.05;

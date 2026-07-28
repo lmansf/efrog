@@ -254,11 +254,20 @@ window.Classifier = {
     if (_state !== 'ok' || !_session) throw new Error('Classifier model is not loaded');
 
     const samples = await _decodeTo16kMono(blob);
-    if (!samples || samples.length < MEL_CONFIG.SAMPLE_RATE / 2) {
+    if (!samples || !samples.length) {
       throw new Error('Could not read that audio file — it may be empty or corrupt');
     }
 
-    const { data, nMels, nFrames } = melSpectrogram(samples, DURATION_SAMPLES);
+    if (!window.TrustGuard?.summarizeSignal) {
+      throw new Error('Classification trust check failed to load — reload the page and try again');
+    }
+
+    const clip = samples.length > DURATION_SAMPLES
+      ? samples.subarray(0, DURATION_SAMPLES)
+      : samples;
+    const signal = window.TrustGuard.summarizeSignal(clip, MEL_CONFIG.SAMPLE_RATE);
+
+    const { data, nMels, nFrames } = melSpectrogram(clip, DURATION_SAMPLES);
     const input = new ort.Tensor('float32', data, [1, 1, nMels, nFrames]);
     const output = await _session.run({ [_inputName]: input });
     const logits = output[_outputName].data;   // raw logits
@@ -276,6 +285,7 @@ window.Classifier = {
       species:       _labels[bestIdx],
       confidence:    probs[bestIdx],
       probabilities,
+      signal,
       // Exact model input (log-mel dB, shape [nMels, nFrames] row-major), base64
       // float32 — stored with the observation so it can train the RL model later.
       mel:           _f32ToBase64(data),

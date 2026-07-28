@@ -11,6 +11,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Local DuckDB-WASM is used for in-session storage (`js/db.js`). Browser → Supabase writes go directly (anon RLS policies). Browser → server reads use the Flask API (`server.py`, hosted on Render).
 - Supabase schema is `"Version_1"`. **No anon SELECT policy** on `observations` — reads must go through the Flask server which uses `SUPABASE_DB_URL` (service role) via `psycopg2`.
 
+## Workflow
+
+The contributor loop — OpenSpec change first, `lavish-axi` for visual review, `no-mistakes` as the shipping gate — is documented once in **[README.md → Crew Workflow](README.md#crew-workflow)**, with `openspec/specs/captain-workflow/spec.md` as its normative contract. Follow it there; do not restate it here.
+
+Agent-only caveat: that loop describes a **top-level** contributor session. If you are already running as a step inside an active `no-mistakes` gate (review, test, lint, docs, push, PR, CI), it does not apply to you: do your assigned phase only and never run `no-mistakes init`, `axi run`, or any other pipeline-control command.
+
 ## iOS Auth
 
 - Auth module lives in `ios/eFrog/Auth/`. Three files: `AuthManager.swift` (ObservableObject, public API: `login()`, `logout()`, `getAccessToken()`), `UserProfile.swift` (userId/name/email struct), `Auth0.plist` (domain + clientId).

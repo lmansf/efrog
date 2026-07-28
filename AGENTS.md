@@ -13,11 +13,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Workflow
 
-The steps below describe a top-level contributor session. If you are already running as a step inside an active `no-mistakes` gate (review, test, lint, docs, push, PR, CI), they do not apply to you: do your assigned phase only and never run `no-mistakes init`, `axi run`, or any other pipeline-control command.
+The contributor loop — OpenSpec change first, `lavish-axi` for visual review, `no-mistakes` as the shipping gate — is documented once in **[README.md → Crew Workflow](README.md#crew-workflow)**, with `openspec/specs/captain-workflow/spec.md` as its normative contract. Follow it there; do not restate it here.
 
-- Non-trivial changes start in `openspec/`. Create or update a change under `openspec/changes/<name>/` before editing repo files; the generated Codex entry point is `/opsx:propose "<idea>"`. Archive completed changes with `openspec archive <name>` so `openspec/specs/` remains the durable source of truth.
-- Use `lavish-axi` for browser UI work (`index.html`, `styles.css`, `js/pages/`), iOS UI work (`ios/eFrog/App/`), and any non-trivial plan or result that is easier to review visually than in plain text. Build local HTML artifacts under `.lavish/`; `.gitignore` excludes that directory unconditionally, so committing an artifact takes an explicit `git add -f .lavish/<artifact>.html` and should only happen when a task asks for it.
-- Before handoff or shipping, a top-level session runs `no-mistakes doctor`, `no-mistakes status`, and then `no-mistakes axi run` from the current worktree. If `no-mistakes status` says the repo is not initialized in that worktree, run `no-mistakes init` there before starting the gate flow.
+Agent-only caveat: that loop describes a **top-level** contributor session. If you are already running as a step inside an active `no-mistakes` gate (review, test, lint, docs, push, PR, CI), it does not apply to you: do your assigned phase only and never run `no-mistakes init`, `axi run`, or any other pipeline-control command.
 
 ## iOS Auth
 

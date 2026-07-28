@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-07-28
+goal: Make the captain's proposal-build-review-validate loop discoverable and
+  durable in efrog.

@@ -11,6 +11,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Local DuckDB-WASM is used for in-session storage (`js/db.js`). Browser → Supabase writes go directly (anon RLS policies). Browser → server reads use the Flask API (`server.py`, hosted on Render).
 - Supabase schema is `"Version_1"`. **No anon SELECT policy** on `observations` — reads must go through the Flask server which uses `SUPABASE_DB_URL` (service role) via `psycopg2`.
 
+## Workflow
+
+- Non-trivial changes start in `openspec/`. Create or update a change under `openspec/changes/<name>/` before editing repo files; the generated Codex entry point is `/opsx:propose "<idea>"`. Archive completed changes with `openspec archive <name>` so `openspec/specs/` remains the durable source of truth.
+- Use `lavish-axi` for browser UI work (`index.html`, `styles.css`, `js/pages/`), iOS UI work (`ios/eFrog/App/`), and any non-trivial plan or result that is easier to review visually than in plain text. Build local HTML artifacts under `.lavish/`; that directory is ignored unless a task explicitly wants a checked-in artifact.
+- Before handoff or shipping, run `no-mistakes doctor`, `no-mistakes status`, and then `no-mistakes axi run` from the current worktree. If `no-mistakes status` says the repo is not initialized in that worktree, run `no-mistakes init` there before starting the gate flow.
+
 ## iOS Auth
 
 - Auth module lives in `ios/eFrog/Auth/`. Three files: `AuthManager.swift` (ObservableObject, public API: `login()`, `logout()`, `getAccessToken()`), `UserProfile.swift` (userId/name/email struct), `Auth0.plist` (domain + clientId).
@@ -54,3 +60,10 @@ Three Swift files form the audio pipeline.  All target 16 kHz mono Float32, 80 0
 ### AudioFileLoader.swift
 - `AVAudioFile` + `AVAudioConverter` → 16 kHz mono Float32.
 - Reads only as many source frames as needed for 80 000 output samples (avoids large-file allocation).
+
+## Maintaining this file
+
+Keep this file for knowledge useful to almost every future agent session in this project.
+Do not repeat what the codebase already shows; point to the authoritative file or command instead.
+Prefer rewriting or pruning existing entries over appending new ones.
+When updating this file, preserve this bar for all agents and keep entries concise.

@@ -18,6 +18,17 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 > `file://` won't work for local inference because browsers block `fetch` of the model over that protocol — use a static server (above) or deploy to Vercel.
 
+## Crew Workflow
+
+Non-trivial changes in `efrog` follow the captain's loop:
+
+1. **OpenSpec first**: create or update a change in `openspec/changes/` before implementation. Use `openspec new change <name> --description "<summary>"` or the generated Codex command `/opsx:propose "<idea>"`. Keep the proposal, design, specs, and task list with that change until the work is complete, then archive it with `openspec archive <name>` so `openspec/specs/` stays current.
+2. **Review through `lavish-axi`**: for browser UI work, iOS UI work, or any plan/results that are easier to review visually, build an HTML artifact under `.lavish/` and open it with `lavish-axi .lavish/<artifact>.html`. Use `lavish-axi export` or `lavish-axi share` when the review needs a portable or hosted copy.
+3. **Validate with `no-mistakes`**: run `no-mistakes doctor`, then `no-mistakes status` in the current worktree. If the worktree reports `repo not initialized`, run `no-mistakes init` there before starting the gate. When the branch is ready, run `no-mistakes axi run` and respond to its gate flow instead of bypassing it.
+4. **Repeat as needed**: update the active OpenSpec change, regenerate the `lavish-axi` review surface, and rerun `no-mistakes` until the change is ready to ship.
+
+`.lavish/` is reserved for local generated review artifacts and is ignored by git unless a task explicitly asks for a checked-in artifact.
+
 ## Sign-in prompt
 
 On first visit, a dismissible modal invites users to sign in so their observations are saved to their account and accessible across devices. The prompt appears after the boot screen clears and is completely optional — users can dismiss it or click **Continue without signing in**.

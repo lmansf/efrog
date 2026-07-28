@@ -314,6 +314,18 @@ const RecordPage = (function () {
     return new Promise(resolve => setTimeout(() => { loader.remove(); resolve(); }, 1100));
   }
 
+  function abstainedResultHtml(assessment) {
+    return `
+      <div class="result-placeholder">
+        <div class="result-species">
+          <div class="result-species-name result-uncertain">${escHtml(assessment.title)}</div>
+          <div class="result-confidence-badge confidence-low">Trust guard abstained</div>
+        </div>
+        <p class="result-hint">${escHtml(assessment.detail)}</p>
+      </div>
+    `;
+  }
+
   // ── Classification ────────────────────────────────────
   async function classifyAudio() {
     const payload = audioBlob || currentFile;
@@ -418,6 +430,22 @@ const RecordPage = (function () {
         </div>
       `;
     } else {
+      const trustAssessment = window.TrustGuard?.evaluate
+        ? window.TrustGuard.evaluate(apiResult)
+        : { abstain: false, reason: null };
+
+      if (trustAssessment.abstain) {
+        currentEntryId = null;
+        currentSpecies = null;
+        currentConfidence = null;
+        window.__efrogLastObs = null;
+        resultContent.innerHTML = abstainedResultHtml(trustAssessment);
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = 'Analyze again';
+        resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+
       // 5% chance this observation is "holo" — decided once, at creation, so it
       // stays stable. Holographic card rendering comes later.
       const isHolo = Math.random() < 0.05;

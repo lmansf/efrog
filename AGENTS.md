@@ -37,6 +37,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - Browser-side abstention lives in `js/trust-guard.js`. `window.Classifier.classify()` adds decoded-audio `signal` stats, and `js/pages/record.js` calls `window.TrustGuard.evaluate()` before rendering or persisting a result.
 - Trust-guard abstentions render `No frog call confidently detected` and skip local history, DuckDB/Supabase observation writes, and the per-result `Was this identification right?` prompt.
+- Thresholds and abstention copy live only in `js/trust-guard.js`; it is dependency-free and dual-exports (`module.exports` + `global.TrustGuard`) so `node --test test/` can cover it without a browser. That is the repo's only JS test suite — there is no `package.json`, linter, or formatter config.
 
 ## iOS audio pipeline (`ios/eFrog/Audio/`)
 

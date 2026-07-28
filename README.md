@@ -8,6 +8,8 @@ By default (`EFROG_LOCAL_INFERENCE = true` in `js/config.js`) the model runs **e
 
 The class list comes from `labels.json` (kept in sync with the model by the training notebook).
 
+Before showing a result, the browser checks that the audio it analyzed actually carries usable signal. Clips that are silent, near-silent, or under about a second long get a neutral **No frog call confidently detected** panel instead of a species card, and nothing is added to your history or synced. (Only the first 5 seconds of a clip are analyzed, so a long upload that starts with silence abstains too.)
+
 ### Running the browser-only app
 
 Serve the project root with any static server so the model file can be fetched:

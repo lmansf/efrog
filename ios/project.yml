@@ -15,6 +15,26 @@ options:
   createIntermediateGroups: true
   xcodeVersion: "15.0"
 
+# Explicit scheme so Archive is pinned to the Release configuration. Without
+# this, Xcode auto-creates the scheme, and an auto-scheme that archives with
+# Debug would demand a *development* provisioning profile (which embeds device
+# UDIDs) instead of an App Store one — the "team has no devices" dead end.
+schemes:
+  eFrog:
+    build:
+      targets:
+        eFrog: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    analyze:
+      config: Debug
+    profile:
+      config: Release
+    archive:
+      config: Release
+
 packages:
   onnxruntime:
     url: https://github.com/microsoft/onnxruntime-swift-package-manager

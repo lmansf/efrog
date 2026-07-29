@@ -254,8 +254,15 @@ final class MelSpectrogram {
         var negRefDB = -refDB
         vDSP_vsmsa(logMel, 1, &scale, &negRefDB, &mel, 1, vDSP_Length(total))
 
-        // Clamp to floor using vDSP_vthres (max(mel[i], floor))
-        vDSP_vthrsc(mel, 1, &floorDB, &mel, 1, vDSP_Length(total))
+        // Clamp to the -80 dB floor. vDSP_vthr computes C[n] = max(A[n], B) —
+        // exactly the clip. (Do NOT use vDSP_vthres, which zeroes values below
+        // the threshold, or vDSP_vthrsc, which substitutes ±scale; both have
+        // different semantics AND different signatures.) In-place is documented
+        // safe; the buffer-pointer dance avoids Swift's exclusivity check on
+        // passing `mel` and `&mel` in one call.
+        mel.withUnsafeMutableBufferPointer { p in
+            vDSP_vthr(p.baseAddress!, 1, &floorDB, p.baseAddress!, 1, vDSP_Length(total))
+        }
 
         // Guard against any remaining NaN/inf (matches js nan_to_num)
         for i in 0..<total where !mel[i].isFinite { mel[i] = floorDB }

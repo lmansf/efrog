@@ -62,6 +62,7 @@ Three Swift files form the audio pipeline.  All target 16 kHz mono Float32, 80 0
 - **Slaney mel scale** (htk=False): linear below 1 kHz (`fSp = 200/3`), log above (`logstep = ln(6.4)/27`).  Exact port from JS.
 - **Slaney L1 norm**: `enorm = 2 / (melPts[m+2] - melPts[m])`.
 - **power_to_db**: `ref = max(mel)`, `top_db = 80`, `amin = 1e-10`.  Uses `vvlog10f` for vectorised log10.
+- **Floor clamp**: `vDSP_vthr` (6 args, `C[n]=max(A[n],B)`) is the ONLY correct choice — `vDSP_vthres` zeroes below threshold and `vDSP_vthrsc` substitutes ±scale (7 args); this line has been mis-"fixed" twice. In-place via `withUnsafeMutableBufferPointer` to satisfy Swift exclusivity.
 - **vDSP FFT**: `vDSP_create_fftsetup(10, kFFTRadix2)` + `vDSP_fft_zrip` (log2N=10 for N=1024).  After `vDSP_zvmags`, DC (`realp[0]²`) and Nyquist (`imagp[0]²`) are fixed manually (both have zero mel weight, but we correct them for accuracy).
 - **Output shape**: `[[Float]]` with `[nMels=64][nFrames=157]`, values in dB ≈ `[-80, 0]`.
 

@@ -75,12 +75,38 @@ App Store Connect → eFrog → **TestFlight** tab. The build appears after proc
 1. Bump `CURRENT_PROJECT_VERSION` in `project.yml` (every upload needs a higher build number; bump `MARKETING_VERSION` for user-facing releases).
 2. `xcodegen generate` → Archive → Upload. New builds land in the same TestFlight groups automatically (internal testers get them instantly).
 
+## No registered devices (shipping without ever plugging in an iPhone)
+
+TestFlight needs **no** registered device: App Store provisioning profiles, unlike development and ad-hoc ones, carry no device list. So a team with zero devices can archive and upload — only local *device* builds (⌘R / ⌘B against a connected phone) are blocked, and the Simulator covers those.
+
+Practically: use the **Simulator** for local runs, and **Product → Archive** (never Build) for shipping. Ignore development-profile errors in Signing & Capabilities; they don't affect archiving.
+
+If the archive itself fails on signing, switch that one configuration to manual:
+
+1. **Certificate** — Xcode → Settings → Accounts → your Apple ID → your team → *Manage Certificates…* → **+** → **Apple Distribution**.
+2. **Profile** — [developer.apple.com/account/resources/profiles/add](https://developer.apple.com/account/resources/profiles/add) → Distribution → **App Store Connect** → App ID `com.efrog.ios` → pick that certificate → name it `eFrog App Store` → Generate → Download → double-click the file to load it into Xcode.
+3. **Target** — Signing & Capabilities → untick *Automatically manage signing* → under **Release** set Provisioning Profile `eFrog App Store` and Signing Certificate **Apple Distribution**. Leave **Debug** as-is (Simulator builds need no signing).
+
+To make step 3 survive `xcodegen generate`, add your 10-character Team ID to `project.yml` under the target's `settings` and re-generate:
+
+```yaml
+    settings:
+      base:
+        DEVELOPMENT_TEAM: ABCDE12345
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: eFrog App Store
+```
+
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | Package resolve fails | Network/proxy — retry File → Packages → Resolve Package Versions. |
-| "No profiles for com.efrog.ios" | Step 2 — team not selected, or bundle id collision. |
+| "No profiles … iOS App **Development**" / "team has no devices" | You pressed Build/Run with a device destination. Development profiles embed device UDIDs, so they need a registered iPhone — **Archive doesn't**. Use Product → Archive, or the Simulator for local runs. See *No registered devices* below. |
+| "No profiles … iOS App **Store**" at archive time | Distribution signing genuinely failed — follow *No registered devices* below. |
 | Sign-in sheet closes with error | Step 3 — callback URL not added (or bundle id changed but URLs not updated). |
 | "frog_classifier.onnx not found" at launch | Regenerate the project (`xcodegen generate`) — the model is referenced from the repo root, so run it from a full checkout. |
 | Upload rejected: missing icon | Shouldn't happen — the 1024 px AppIcon ships in `Assets.xcassets`. |

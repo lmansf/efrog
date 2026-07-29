@@ -75,6 +75,28 @@ App Store Connect → eFrog → **TestFlight** tab. The build appears after proc
 1. Bump `CURRENT_PROJECT_VERSION` in `project.yml` (every upload needs a higher build number; bump `MARKETING_VERSION` for user-facing releases).
 2. `xcodegen generate` → Archive → Upload. New builds land in the same TestFlight groups automatically (internal testers get them instantly).
 
+## Alternative: let Xcode Cloud build and sign it
+
+If local signing fights you — or the Mac is Intel and stuck below Apple's current
+SDK floor for uploads — Xcode Cloud sidesteps both. It builds on Apple's Macs
+with current Xcode, **manages signing itself** (no certificates or profiles to
+create by hand, no registered devices), and delivers straight to TestFlight.
+Included with the Developer Program: 25 compute hours/month.
+
+1. Push the branch (already done) so the code is on GitHub.
+2. In Xcode: **Integrate → Create Workflow** (or Product → Xcode Cloud) → select
+   the **eFrog** app → Next.
+3. Grant access to the GitHub repo when prompted (Xcode Cloud asks to install
+   its GitHub app — read-only clone access is all it needs).
+4. Edit the workflow: **Branch** = the branch you're shipping,
+   **Archive** action with **Deployment: TestFlight (Internal Testing Only)**.
+5. **Start Build**. ~15–25 minutes later the build appears in App Store
+   Connect → TestFlight, already signed.
+
+Because the archive happens on Apple's infrastructure, your Mac's Xcode version
+stops mattering — useful once Apple raises the minimum SDK past what an Intel
+Mac can install.
+
 ## No registered devices (shipping without ever plugging in an iPhone)
 
 TestFlight needs **no** registered device: App Store provisioning profiles, unlike development and ad-hoc ones, carry no device list. So a team with zero devices can archive and upload — only local *device* builds (⌘R / ⌘B against a connected phone) are blocked, and the Simulator covers those.

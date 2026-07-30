@@ -100,10 +100,19 @@ Included with the Developer Program: 25 compute hours/month.
 
 - A fresh clone has no project (`Project eFrog.xcodeproj does not exist at
   ios/eFrog.xcodeproj`) → the hook installs XcodeGen and regenerates it.
-- Xcode Cloud builds with `-disableAutomaticPackageResolution` and demands a
-  committed `Package.resolved`, which for this project would live *inside* the
-  generated project → the hook runs `xcodebuild -resolvePackageDependencies`,
-  writing it to the exact path the build step expects.
+- Xcode Cloud builds with `-disableAutomaticPackageResolution`: it never runs
+  the SwiftPM resolver and demands a pre-existing `Package.resolved` (an
+  explicit `xcodebuild -resolvePackageDependencies` is refused too — exit 74).
+  That file normally lives inside the generated project, so the pins are
+  committed as **`ios/Package.resolved`** and the hook copies them into place.
+
+Refresh the pins whenever a package version changes in `project.yml`:
+
+```bash
+cd ios && xcodegen generate && open eFrog.xcodeproj    # let Xcode resolve, then:
+cp eFrog.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved Package.resolved
+git commit -am "build(ios): refresh package pins" && git push
+```
 
 The hook exists at both the repo root and `ios/` because Xcode Cloud probes
 different locations across versions; the root copy just forwards. **Both must

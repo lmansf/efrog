@@ -90,8 +90,18 @@ Included with the Developer Program: 25 compute hours/month.
    its GitHub app — read-only clone access is all it needs).
 4. Edit the workflow: **Branch** = the branch you're shipping,
    **Archive** action with **Deployment: TestFlight (Internal Testing Only)**.
+   Delete any **Test** action the default workflow added — this project has no
+   test targets, so a Test action fails the build.
 5. **Start Build**. ~15–25 minutes later the build appears in App Store
    Connect → TestFlight, already signed.
+
+`ci_scripts/ci_post_clone.sh` handles the one wrinkle: because `eFrog.xcodeproj`
+is generated and gitignored, a fresh clone has no project (`Project
+eFrog.xcodeproj does not exist at ios/eFrog.xcodeproj`). The hook installs
+XcodeGen and regenerates it after cloning. It exists at both the repo root and
+`ios/` because Xcode Cloud probes different locations across versions; the root
+copy just forwards. **Both must stay executable (`chmod 755`)** — Xcode Cloud
+skips non-executable hooks without a word.
 
 Because the archive happens on Apple's infrastructure, your Mac's Xcode version
 stops mattering — useful once Apple raises the minimum SDK past what an Intel

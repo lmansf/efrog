@@ -89,9 +89,14 @@ Included with the Developer Program: 25 compute hours/month.
 3. Grant access to the GitHub repo when prompted (Xcode Cloud asks to install
    its GitHub app — read-only clone access is all it needs).
 4. Edit the workflow: **Branch** = the branch you're shipping,
-   **Archive** action with **Deployment: TestFlight (Internal Testing Only)**.
-   Delete any **Test** action the default workflow added — this project has no
-   test targets, so a Test action fails the build.
+   **Archive** action with **Deployment Preparation: TestFlight (Internal
+   Testing Only)**. That setting matters — left broader, Xcode Cloud also
+   exports *development* and *ad-hoc* variants, and both fail with exit 70 on a
+   team with no registered devices (those profile types embed device UDIDs).
+   The app-store export passes regardless, so the TestFlight build is still
+   produced; the setting just stops two irrelevant red errors from failing the
+   run. Also delete any **Test** action the default workflow added — this
+   project has no test targets, so a Test action fails the build.
 5. **Start Build**. ~15–25 minutes later the build appears in App Store
    Connect → TestFlight, already signed.
 
@@ -155,6 +160,7 @@ To make step 3 survive `xcodegen generate`, add your 10-character Team ID to `pr
 | Package resolve fails | Network/proxy — retry File → Packages → Resolve Package Versions. |
 | "No profiles … iOS App **Development**" / "team has no devices" | You pressed Build/Run with a device destination. Development profiles embed device UDIDs, so they need a registered iPhone — **Archive doesn't**. Use Product → Archive, or the Simulator for local runs. See *No registered devices* below. |
 | "No profiles … iOS App **Store**" at archive time | Distribution signing genuinely failed — follow *No registered devices* below. |
+| Xcode Cloud: "Export archive for development/ad-hoc distribution" exits 70 | Expected with no registered devices; the app-store export still passes. Set the Archive action's Deployment Preparation to **TestFlight (Internal Testing Only)**. |
 | Sign-in sheet closes with error | Step 3 — callback URL not added (or bundle id changed but URLs not updated). |
 | "frog_classifier.onnx not found" at launch | Regenerate the project (`xcodegen generate`) — the model is referenced from the repo root, so run it from a full checkout. |
 | Upload rejected: missing icon | Shouldn't happen — the 1024 px AppIcon ships in `Assets.xcassets`. |

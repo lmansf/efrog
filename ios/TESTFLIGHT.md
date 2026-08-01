@@ -97,8 +97,14 @@ Included with the Developer Program: 25 compute hours/month.
    produced; the setting just stops two irrelevant red errors from failing the
    run. Also delete any **Test** action the default workflow added — this
    project has no test targets, so a Test action fails the build.
-5. **Start Build**. ~15–25 minutes later the build appears in App Store
+5. Add a **Post-Action → TestFlight Internal Testing** and pick a tester group.
+   The Archive action only *builds* the app; without this post-action nothing
+   is delivered and the build never reaches TestFlight.
+6. **Start Build**. ~15–25 minutes later the build appears in App Store
    Connect → TestFlight, already signed.
+
+Release notes come from `ios/TestFlight/WhatToTest.en-US.txt` — Xcode Cloud
+picks it up automatically and shows it to testers. Edit it per release.
 
 `ci_scripts/ci_post_clone.sh` handles the two wrinkles that follow from
 `eFrog.xcodeproj` being generated and gitignored:

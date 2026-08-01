@@ -1,0 +1,15 @@
+First TestFlight build of eFrog — frog call identification that runs entirely on your iPhone.
+
+What to try:
+• Analyze tab — tap Record and capture 5 seconds of a frog call (or play one from another device). The species and confidence appear when analysis finishes.
+• Import an audio file (M4A, WAV, MP3) instead of recording, and analyze that.
+• Tell us if the ID was right: Agree, Dispute (pick the correct species), or Not now.
+• Collection tab — every analysis is saved here, newest first.
+• Leaderboard tab — gem scores, ranked. Requires signing in.
+• About tab — sign in with Auth0 so observations count toward the leaderboard across devices.
+
+Known in this build:
+• The species list covers 19 North American frogs and toads; anything else will be misidentified as the closest match.
+• Audio is analyzed on-device and never uploaded — only the result is saved.
+
+Please report: wrong identifications (with the species you expected), crashes, microphone permission trouble, and anything confusing in the flow.

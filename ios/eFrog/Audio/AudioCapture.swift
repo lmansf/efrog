@@ -75,11 +75,20 @@ final class AudioCapture: ObservableObject {
 
         isRecording = false
 
-        lock.lock()
-        let result = _samples
-        lock.unlock()
+        return Self.padOrTruncate(drainSamples(), to: Self.targetSampleCount)
+    }
 
-        return Self.padOrTruncate(result, to: Self.targetSampleCount)
+    /// Read the accumulated samples under the lock.
+    ///
+    /// Kept synchronous on purpose: taking an NSLock directly inside an async
+    /// function is unavailable from asynchronous contexts (an error in the
+    /// Swift 6 language mode) because a suspension could occur while the lock
+    /// is held. A non-async helper cannot suspend, so the critical section is
+    /// guaranteed to complete on one thread.
+    private func drainSamples() -> [Float] {
+        lock.lock()
+        defer { lock.unlock() }
+        return _samples
     }
 
     // ── Tap callback (audio thread) ───────────────────────────────────────────

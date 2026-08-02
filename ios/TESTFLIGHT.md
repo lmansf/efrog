@@ -88,15 +88,19 @@ Included with the Developer Program: 25 compute hours/month.
    the **eFrog** app → Next.
 3. Grant access to the GitHub repo when prompted (Xcode Cloud asks to install
    its GitHub app — read-only clone access is all it needs).
-4. Edit the workflow: **Branch** = the branch you're shipping,
-   **Archive** action with **Deployment Preparation: TestFlight (Internal
-   Testing Only)**. That setting matters — left broader, Xcode Cloud also
-   exports *development* and *ad-hoc* variants, and both fail with exit 70 on a
-   team with no registered devices (those profile types embed device UDIDs).
-   The app-store export passes regardless, so the TestFlight build is still
-   produced; the setting just stops two irrelevant red errors from failing the
-   run. Also delete any **Test** action the default workflow added — this
-   project has no test targets, so a Test action fails the build.
+4. Edit the workflow: **Branch** = the branch you're shipping, **Archive**
+   action with **Distribution Preparation: TestFlight (Internal Testing
+   Only)**, and delete any **Test** action the default workflow added (this
+   project has no test targets, so a Test action fails the build).
+
+> **Xcode Cloud requires at least one registered device.** It exports
+> *development* and *ad-hoc* variants on every archive regardless of the
+> Distribution Preparation setting — that setting governs delivery, not
+> exports. Both of those profile types embed device UDIDs, so on a team with no
+> registered device they fail with exit 70, the build is marked failed, and a
+> failed build never runs the TestFlight post-action — even though
+> `Export archive for app-store distribution` passed. Register any device
+> (below) and the whole pipeline goes green.
 5. Add a **Post-Action → TestFlight Internal Testing** and pick a tester group.
    The Archive action only *builds* the app; without this post-action nothing
    is delivered and the build never reaches TestFlight.
@@ -140,7 +144,11 @@ TestFlight needs **no** registered device: App Store provisioning profiles, unli
 
 Practically: use the **Simulator** for local runs, and **Product → Archive** (never Build) for shipping. Ignore development-profile errors in Signing & Capabilities; they don't affect archiving.
 
-If the archive itself fails on signing, switch that one configuration to manual:
+**Local archiving also needs distribution signing.** `xcodebuild archive` with
+*automatic* signing asks Apple for an **iOS App Development** profile even for a
+Release archive (it signs with a development identity and re-signs at export),
+so it fails on a device-less team no matter what flags you pass — including
+`-allowProvisioningUpdates`. The device-free fix is manual signing:
 
 1. **Certificate** — Xcode → Settings → Accounts → your Apple ID → your team → *Manage Certificates…* → **+** → **Apple Distribution**.
 2. **Profile** — [developer.apple.com/account/resources/profiles/add](https://developer.apple.com/account/resources/profiles/add) → Distribution → **App Store Connect** → App ID `com.efrog.ios` → pick that certificate → name it `eFrog App Store` → Generate → Download → double-click the file to load it into Xcode.

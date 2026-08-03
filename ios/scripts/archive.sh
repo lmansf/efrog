@@ -13,7 +13,12 @@
 # team with no registered device cannot archive any other way. See TESTFLIGHT.md.
 set -e
 
-TEAM_ID="BM93GAWCJD"
+# The paid Developer Program team that owns the Apple Distribution certificate
+# and the com.efrog.ios App ID. Note this is NOT the team on the Apple
+# Development certificate (BM93GAWCJD) — both display as "Logan Mansfield" in
+# Xcode, and signing against that one is what produces the misleading
+# "your team has no devices" error.
+TEAM_ID="MRT4QD3Z77"
 PROFILE="eFrog App Store"
 ARCHIVE="$HOME/Desktop/eFrog.xcarchive"
 

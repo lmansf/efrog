@@ -111,6 +111,14 @@ esac
 echo "▸ Regenerating the Xcode project…"
 xcodegen generate
 
+# Archive WITHOUT signing, then sign during export.
+#
+# Command-line build settings apply to every target in the build, and Swift
+# package resource bundles (Auth0_Auth0, swift-crypto_Crypto, …) reject a
+# provisioning profile outright: "does not support provisioning profiles".
+# Signing has to be scoped to the app target, which the command line cannot do
+# — so the archive is produced unsigned and `-exportArchive` signs the app
+# (and only the app) with the profile below.
 echo "▸ Archiving (expect 10-20 minutes on older hardware)…"
 echo "  Full log: $LOG"
 set +e
@@ -121,10 +129,7 @@ xcodebuild \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
   archive \
-  CODE_SIGN_STYLE=Manual \
-  CODE_SIGN_IDENTITY="Apple Distribution" \
-  PROVISIONING_PROFILE_SPECIFIER="$FOUND_NAME" \
-  DEVELOPMENT_TEAM="$TEAM_ID" 2>&1 | tee "$LOG"
+  CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$LOG"
 status=${PIPESTATUS[0]}
 set -e
 
@@ -132,15 +137,65 @@ if [ "$status" -ne 0 ]; then
   echo
   echo "✗ Archive failed. Errors from the log:"
   echo "─────────────────────────────────────────────────────────────"
+  grep -E "error:" "$LOG" | sort -u | head -20
+  echo "─────────────────────────────────────────────────────────────"
+  echo "Full log: $LOG"
+  exit "$status"
+fi
+
+echo "✓ Archive written to $ARCHIVE"
+
+# ── Export a signed .ipa
+
+EXPORT_DIR="$HOME/Desktop/eFrogExport"
+OPTS="$HOME/Desktop/eFrogExportOptions.plist"
+rm -rf "$EXPORT_DIR"
+
+cat > "$OPTS" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>teamID</key><string>$TEAM_ID</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>signingCertificate</key><string>Apple Distribution</string>
+  <key>provisioningProfiles</key>
+  <dict>
+    <key>$BUNDLE_ID</key><string>$FOUND_NAME</string>
+  </dict>
+  <key>uploadSymbols</key><true/>
+</dict>
+</plist>
+PLIST
+
+echo "▸ Exporting a signed .ipa…"
+set +e
+xcodebuild -exportArchive \
+  -archivePath "$ARCHIVE" \
+  -exportPath "$EXPORT_DIR" \
+  -exportOptionsPlist "$OPTS" 2>&1 | tee -a "$LOG"
+status=${PIPESTATUS[0]}
+set -e
+
+if [ "$status" -ne 0 ]; then
+  echo
+  echo "✗ Export failed. Errors from the log:"
+  echo "─────────────────────────────────────────────────────────────"
   grep -E "error:|Provisioning|provisioning profile|Code Sign|codesign" "$LOG" | sort -u | head -20
   echo "─────────────────────────────────────────────────────────────"
   echo "Full log: $LOG"
   exit "$status"
 fi
 
+IPA=$(find "$EXPORT_DIR" -name '*.ipa' | head -1)
 echo
-echo "✓ Archive written to $ARCHIVE"
+echo "✓ Signed app ready: $IPA"
 echo
-echo "Next — upload it:"
-echo "    open \"$ARCHIVE\""
-echo "  Xcode's Organizer opens → Distribute App → TestFlight & App Store → Upload."
+echo "Next — upload to TestFlight:"
+echo "  1. Install 'Transporter' (free) from the Mac App Store, if you haven't:"
+echo "       open \"macappstore://apps.apple.com/app/transporter/id1450874784\""
+echo "  2. Open Transporter, sign in with your Apple ID, and drag this file in:"
+echo "       $IPA"
+echo "  3. Click Deliver. The build appears in App Store Connect → TestFlight"
+echo "     after 5-15 minutes of processing."

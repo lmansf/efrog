@@ -4,9 +4,9 @@
 #   ./archive.sh
 #
 # Signs the Release configuration manually with the Apple Distribution identity
-# and the "eFrog App Store" provisioning profile. The overrides are passed on
-# the command line rather than committed to project.yml so Xcode Cloud's
-# managed signing keeps working unchanged.
+# and an App Store provisioning profile for com.efrog.ios. The overrides are
+# passed on the command line rather than committed to project.yml so Xcode
+# Cloud's managed signing keeps working unchanged.
 #
 # Why manual: `xcodebuild archive` under automatic signing requests an iOS App
 # *Development* profile even for Release, and those embed device UDIDs — so a
@@ -15,18 +15,21 @@ set -e
 set -o pipefail
 
 # The paid Developer Program team that owns the Apple Distribution certificate
-# and the com.efrog.ios App ID. Note this is NOT the team on the Apple
-# Development certificate (BM93GAWCJD) — both display as "Logan Mansfield" in
-# Xcode, and signing against that one is what produces the misleading
-# "your team has no devices" error.
+# and the com.efrog.ios App ID. NOT the team on the Apple Development
+# certificate (BM93GAWCJD) — both display as "Logan Mansfield" in Xcode, and
+# signing against that one produces the misleading "team has no devices" error.
 TEAM_ID="MRT4QD3Z77"
-PROFILE="eFrog App Store"
+BUNDLE_ID="com.efrog.ios"
 ARCHIVE="$HOME/Desktop/eFrog.xcarchive"
 LOG="$HOME/Desktop/efrog-archive.log"
 
+# Xcode 16 reads profiles from UserData; older Xcodes used MobileDevice.
+PROFILE_DIR="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+LEGACY_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+
 cd "$(dirname "$0")/.."
 
-# ── Preflight: catch the common failures in seconds, not after a 15-minute build
+# ── Preflight: catch signing problems in seconds, not after a 15-minute build
 
 echo "▸ Checking for a distribution identity…"
 if ! security find-identity -v -p codesigning | grep -q "Apple Distribution"; then
@@ -35,25 +38,73 @@ if ! security find-identity -v -p codesigning | grep -q "Apple Distribution"; th
   exit 1
 fi
 
-echo "▸ Checking for the '$PROFILE' provisioning profile…"
-profile_found=0
-while IFS= read -r p; do
-  if security cms -D -i "$p" 2>/dev/null | grep -q "<string>$PROFILE</string>"; then
-    profile_found=1
-    break
-  fi
-done < <(find "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" \
-              "$HOME/Library/MobileDevice/Provisioning Profiles" \
-              -name '*.mobileprovision' 2>/dev/null)
+# Find an App Store profile for this bundle id. Matched on the entitlement
+# rather than the profile's name, so whatever you called it in the portal
+# works. Development/ad-hoc profiles list ProvisionedDevices and are skipped —
+# only a device-less (App Store) profile can sign this archive.
+echo "▸ Looking for an App Store provisioning profile for $BUNDLE_ID…"
+FOUND_NAME=""
+FOUND_UUID=""
+FOUND_PATH=""
+SEEN=""
 
-if [ "$profile_found" -eq 0 ]; then
-  echo "✗ No installed profile named '$PROFILE'."
-  echo "  Create it at https://developer.apple.com/account/resources/profiles/add"
-  echo "    Distribution → App Store Connect → App ID com.efrog.ios →"
-  echo "    Apple Distribution certificate → name it exactly: $PROFILE"
-  echo "  Then double-click the downloaded .mobileprovision and re-run this script."
+while IFS= read -r p; do
+  [ -f "$p" ] || continue
+  tmp=$(mktemp)
+  if ! security cms -D -i "$p" >"$tmp" 2>/dev/null; then rm -f "$tmp"; continue; fi
+
+  name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$tmp" 2>/dev/null || echo "")
+  uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$tmp" 2>/dev/null || echo "")
+  appid=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$tmp" 2>/dev/null || echo "")
+  if /usr/libexec/PlistBuddy -c "Print :ProvisionedDevices" "$tmp" >/dev/null 2>&1; then
+    has_devices=yes
+  else
+    has_devices=no
+  fi
+  rm -f "$tmp"
+
+  [ -n "$name" ] && SEEN="$SEEN
+    • $name  ($appid)"
+
+  case "$appid" in
+    *".$BUNDLE_ID")
+      if [ "$has_devices" = "no" ] && [ -n "$uuid" ]; then
+        FOUND_NAME="$name"; FOUND_UUID="$uuid"; FOUND_PATH="$p"
+        break
+      fi
+      ;;
+  esac
+done < <(find "$PROFILE_DIR" "$LEGACY_DIR" "$HOME/Downloads" \
+              -maxdepth 1 -name '*.mobileprovision' 2>/dev/null)
+
+if [ -z "$FOUND_NAME" ]; then
+  echo "✗ No App Store provisioning profile for $BUNDLE_ID found."
+  if [ -n "$SEEN" ]; then
+    echo "  Profiles inspected (installed + ~/Downloads):$SEEN"
+    echo "  None of these is an App Store profile for $BUNDLE_ID."
+  else
+    echo "  No provisioning profiles found at all."
+  fi
+  echo
+  echo "  Create one at https://developer.apple.com/account/resources/profiles/add"
+  echo "    → team must be the one holding your Apple Distribution certificate"
+  echo "    → Distribution → App Store Connect → App ID $BUNDLE_ID"
+  echo "    → download it (leaving it in ~/Downloads is fine) and re-run this script."
   exit 1
 fi
+
+# Downloading is enough — install it ourselves. Double-clicking a
+# .mobileprovision no longer installs it in Xcode 16.
+case "$FOUND_PATH" in
+  "$HOME/Downloads"/*)
+    mkdir -p "$PROFILE_DIR"
+    cp "$FOUND_PATH" "$PROFILE_DIR/$FOUND_UUID.mobileprovision"
+    echo "▸ Installed profile '$FOUND_NAME' from Downloads."
+    ;;
+  *)
+    echo "▸ Using installed profile '$FOUND_NAME'."
+    ;;
+esac
 
 # ── Build
 
@@ -72,7 +123,7 @@ xcodebuild \
   archive \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="Apple Distribution" \
-  PROVISIONING_PROFILE_SPECIFIER="$PROFILE" \
+  PROVISIONING_PROFILE_SPECIFIER="$FOUND_NAME" \
   DEVELOPMENT_TEAM="$TEAM_ID" 2>&1 | tee "$LOG"
 status=${PIPESTATUS[0]}
 set -e

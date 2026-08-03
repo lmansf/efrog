@@ -11,6 +11,12 @@
 # Why manual: `xcodebuild archive` under automatic signing requests an iOS App
 # *Development* profile even for Release, and those embed device UDIDs — so a
 # team with no registered device cannot archive any other way. See TESTFLIGHT.md.
+#
+# NOTE: the resulting .ipa is only uploadable if this Mac's Xcode meets App
+# Store Connect's current SDK floor (iOS 26 SDK / Xcode 26 as of 2026, which
+# needs Apple Silicon). On an older toolchain the upload fails validation with
+# a 409 "SDK version issue" — build via Xcode Cloud instead. The archive is
+# still useful for local inspection and for `xcrun simctl` installs.
 set -e
 set -o pipefail
 

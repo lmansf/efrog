@@ -2,6 +2,22 @@
 
 Everything code-side is ready: sources, Xcode project definition (`project.yml`), app icon, Info.plist keys (mic permission, launch screen, export compliance), and versioning. The steps below are the parts that need your Mac, your Apple Developer account, and your Auth0 dashboard. First time through takes ~30–45 minutes; later builds are step 6 + 8 only.
 
+## Hard constraint: the upload SDK floor
+
+App Store Connect rejects uploads built with an older SDK than its current
+floor, raised every spring:
+
+> Validation failed (409) — SDK version issue. This app was built with the iOS
+> 18.5 SDK. All iOS and iPadOS apps must be built with the iOS 26 SDK or later,
+> included in Xcode 26 or later.
+
+**Xcode 26 requires an Apple Silicon Mac.** On an Intel Mac the newest
+installable version is Xcode 16.4 (iOS 18.5 SDK), which is below the floor — so
+an Intel Mac cannot produce an uploadable build at all, no matter how signing is
+configured. Build on Apple Silicon or in the cloud (Xcode Cloud, below), where
+the toolchain is current. Everything else in this document still applies; only
+the *upload* is gated.
+
 ## 0. Prerequisites
 
 - A Mac with **Xcode 15+** (App Store).
@@ -85,7 +101,9 @@ Included with the Developer Program: 25 compute hours/month.
 
 1. Push the branch (already done) so the code is on GitHub.
 2. In Xcode: **Integrate → Create Workflow** (or Product → Xcode Cloud) → select
-   the **eFrog** app → Next.
+   the **eFrog** app → Next. Set **Environment → Xcode** to the latest release,
+   never a pinned older version — a workflow pinned to Xcode 16.x produces a
+   build that App Store Connect rejects on the SDK floor above.
 3. Grant access to the GitHub repo when prompted (Xcode Cloud asks to install
    its GitHub app — read-only clone access is all it needs).
 4. Edit the workflow: **Branch** = the branch you're shipping, **Archive**
